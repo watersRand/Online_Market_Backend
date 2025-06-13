@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "online-market-backend"
+version = "0.1.0"
+description = "A Django-based campus delivery system"
+authors = ["Benaiah Galavu <bentheaya@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+django = "4.2"
+psycopg2-binary = "2.9"
+djangorestframework = "3.14"
+django-allauth = "0.57"
+djangorestframework-simplejwt = "5.3"
+python-dotenv = "1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "23.7"
+flake8 = "6.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
