@@ -1,5 +1,7 @@
 from django.contrib import admin
 from users.models import User
+from orders.models import Order ,OrderItem
+from products.models import Product
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -11,3 +13,7 @@ class UserAdmin(admin.ModelAdmin):
     def approve_vendors(self, request, queryset):
         queryset.filter(role='vendor').update(is_approved=True)
     approve_vendors.short_description = "Approve selected vendors"
+
+admin.site.register(Product)
+admin.site.register(Order)
+admin.site.register(OrderItem)
