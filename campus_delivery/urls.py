@@ -14,11 +14,13 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
+from django.contrib import admin 
+from django.contrib.auth.views import LoginView
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from products.views import ProductList,ProductDetail
 from orders.views import CartView,AddToCartView,ProcessOrderView
+from userauth.views import register , custom_logout
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,4 +35,5 @@ urlpatterns = [
     path('process-order/', ProcessOrderView.as_view(), name='process-order'),
 
 
+ 
 ]

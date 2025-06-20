@@ -153,3 +153,16 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 AUTH_USER_MODEL = 'users.User'
+
+# --- Custom Authentication Settings ---
+
+
+
+# URL to redirect to after a successful login (e.g., your home page)
+LOGIN_REDIRECT_URL = 'home' # 'home' is the name of the URL pattern for your home page
+
+# URL to redirect to after a successful logout
+LOGOUT_REDIRECT_URL = 'login' # 'login' is the name of the URL pattern for your login page
+
+# URL to redirect to if a user tries to access a login_required view without being authenticated
+LOGIN_URL = 'login' # 'login' is the name of the URL pattern for your login page

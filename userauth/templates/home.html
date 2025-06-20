@@ -1,0 +1,21 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container text-center">
+    <h2 class="text-3xl font-extrabold text-gray-900 mb-6">Welcome!</h2>
+    <p class="text-lg text-gray-700">
+        You are logged in as <strong class="font-semibold text-blue-600">{{ user.username }}</strong>.
+    </p>
+    <p class="mt-4 text-gray-600">
+        This is a protected page, only accessible to authenticated users.
+    </p>
+    <div class="mt-6">
+        <a href="{% url 'logout' %}"
+            class="btn-primary inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+            Log Out
+        </a>
+    </div>
+</div>
+{% endblock %}
