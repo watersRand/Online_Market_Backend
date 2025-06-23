@@ -6,15 +6,12 @@ class Product(models.Model):
         ('tangible', 'Tangible Product'),
         ('service', 'Service'),
     )
-    # this part is to be filled upon discussion with the design team and the front end team
-    # to be done ASAP
     CATEGORY_CHOICES = (
         ('vegetable', 'Vegetable'),
         ('fruit', 'Fruit'),
         ('meal', 'Meal'),
         ('salon', 'Salon Service'),
         ('cobbler', 'Cobbler Service'),
-        ('laundry', 'Laundry Service'),
         ('other', 'Other'),
     )
 
@@ -23,7 +20,7 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=0)  # For tangible products; 0 for services
-    image = model,ks.ImageField(upload_to='products/', blank=True, null=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='tangible')
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='other')
     created_at = models.DateTimeField(auto_now_add=True)
