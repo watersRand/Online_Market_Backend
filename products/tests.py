@@ -25,7 +25,7 @@ class ProductTests(TestCase):
         )
         self.client.force_authenticate(user=self.vendor)
         self.product_data = {
-            'vendor': self.vendor.id,
+            'vendor': self.vendor,  # Pass the User instance directly
             'name': 'Test Product',
             'description': 'A test product',
             'price': 10.00,
@@ -34,8 +34,18 @@ class ProductTests(TestCase):
             'category': 'vegetable'
         }
 
-    def test_create_product(self):
-        response = self.client.post('/api/products/', self.product_data)
+        self.post_data = {
+            'vendor': self.vendor.id,  # For API requests
+            'name': 'Test Product',
+            'description': 'A test product',
+            'price': 10.00,
+            'quantity': 100,
+            'type': 'tangible',
+            'category': 'vegetable'
+        }
+
+    def test_create_product_with_ID(self):
+        response = self.client.post('/api/products/', self.post_data)  # Use post_data here
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Product.objects.filter(name='Test Product').exists())
 
