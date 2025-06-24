@@ -36,6 +36,7 @@ const registerUser = asyncHandler(async (req, res) => {
             isAdmin: user.isAdmin,
             token: generateToken(user._id),
         });
+        res.session = user
     } else {
         res.status(400);
         throw new Error('Invalid user data');
@@ -79,4 +80,42 @@ const getUserProfile = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { registerUser, authUser, getUserProfile };
+// Get delete profile
+const deleteUserProfile = asyncHandler(async (req, res) => {
+    const user = await User.findByIdAndDelete(req.user._id);
+
+    if (user) {
+        res.json("Sucess");
+    } else {
+        res.status(404);
+        throw new Error('User not found');
+    }
+});
+
+//Update a single product
+const updateUserById = (async (req, res) => {
+    const { name, email, phone } = req.body;
+
+    // Find the product by ID
+    let user = await User.findByIdAndUpdate(req.params.id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Product not found');
+    }
+
+    // Update all fields (even if some are the same)
+    user.name = name || user.name; // Provide fallback to existing data if not provided
+    user.email = email || user.email
+    user.phone = phone || user.phone
+
+
+    const updatedUser = await user.save(); // .save() will run pre-save hooks (like updatedAt)
+
+    res.status(200).json({
+        success: true,
+        data: updatedUser
+    });
+});
+
+module.exports = { registerUser, authUser, getUserProfile, deleteUserProfile, updateUserById };
