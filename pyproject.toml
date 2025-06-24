@@ -16,6 +16,7 @@ python-dotenv = "1.0"
 setuptools = "^80"
 psycopg = {extras = ["binary"], version = "^3.2.9"}
 pillow = "^11.2.1"
+requests = "^2.32.4"
 
 
 [tool.poetry.group.dev.dependencies]
