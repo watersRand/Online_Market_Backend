@@ -5,6 +5,9 @@ from orders.models import Order
 from products.models import Product
 from .models import Payment
 from unittest.mock import patch
+from rest_framework.test import APITestCase
+from rest_framework import status
+from django.core import mail
 
 class PaymentTests(TestCase):
     def setUp(self):
@@ -53,21 +56,34 @@ class PaymentTests(TestCase):
     def test_payment_callback(self, mock_send_mail):
         payment = Payment.objects.create(order=self.order, amount=20.00, status='pending')
         callback_data = {
-            'Body': {
-                'stkCallback': {
-                    'ResultCode': 0,
-                    'CallbackMetadata': {
-                        'Item': [
-                            {'Name': 'MpesaCode', 'Value': 'TEST123'},
-                            {'Name': 'Amount', 'Value': 20.00}
+            "Body": {
+                "stkCallback": {
+                    "MerchantRequestID": "test_merchant_id",
+                    "CheckoutRequestID": "test_checkout_id",
+                    "ResultCode": 0,
+                    "ResultDesc": "Success",
+                    "CallbackMetadata": {
+                        "Item": [
+                            {"Name": "Amount", "Value": 100},
+                            {"Name": "MpesaReceiptNumber", "Value": "test_receipt"}
                         ]
                     }
                 }
             }
         }
-        response = self.client.post(f'/api/payment/callback/{payment.id}/', callback_data)
-        self.assertEqual(response.status_code, 200)
+        mail.outbox = []
+        response = self.client.post(
+            f'/api/payment/callback/{payment.id}/',
+            callback_data,
+            format='json'  
+        )
+        # Assertions
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         payment.refresh_from_db()
         self.assertEqual(payment.status, 'completed')
-        self.assertEqual(payment.mpesa_code, 'TEST123')
-        mock_send_mail.assert_called_once()
+
+        # Check email was sent via locmem backend
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.subject, 'Payment Receipt for Order 2')
+        self.assertEqual(email.to, [self.customer.email])
