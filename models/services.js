@@ -2,7 +2,7 @@
 
 const mongoose = require('mongoose');
 
-const productSchema = new mongoose.Schema({
+const serviceSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
@@ -15,20 +15,16 @@ const productSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
-    countInStock: {
-        type: Number,
-        required: true,
-    },
     imageUrl: {
         type: String,
         required: false,
     },
     category: {
         type: String,
-        enum: ['Food and Drinks', 'Beauty and Cosmetics', 'Electronics', 'Stationary']
+        enum: ['Barber and Beauty', 'Computer repair', 'Landscape']
     }
 });
 
-const Product = mongoose.model('Product', productSchema);
+const Service = mongoose.model('Service', serviceSchema);
 
-module.exports = Product;
+module.exports = Service;
