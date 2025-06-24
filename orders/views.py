@@ -44,14 +44,14 @@ class OrderListCreateView(generics.ListCreateAPIView):
             return Order.objects.filter(items__product__vendor=self.request.user).distinct()
         return Order.objects.filter(customer=self.request.user)
 
-    def perform_create(self, serializer):
-        cart = self.request.session.get('cart', {})
-        if not cart:
-            raise serializers.ValidationError("Cart is empty")
-        items_data = [{'product_id': int(pid), 'quantity': qty} for pid, qty in cart.items()]
-        serializer.save(items=items_data, customer=self.request.user)
-        self.request.session['cart'] = {}
-        self.request.session.modified = True
+    # def perform_create(self, serializer):
+    #     cart = self.request.session.get('cart', {})
+    #     if not cart:
+    #         raise serializers.ValidationError("Cart is empty")
+    #     items_data = [{'product_id': int(pid), 'quantity': qty} for pid, qty in cart.items()]
+    #     serializer.save(items=items_data, customer=self.request.user)
+    #     self.request.session['cart'] = {}
+    #     self.request.session.modified = True
 
 class OrderDetailView(generics.RetrieveAPIView):
     queryset = Order.objects.all()

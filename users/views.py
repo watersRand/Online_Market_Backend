@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .serializers import UserSerializer, RegisterSerializer
 from .models import User
+from rest_framework.permissions import AllowAny  
 
 class RegisterView(APIView):
     permission_classes = [AllowAny] 
