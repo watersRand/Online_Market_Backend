@@ -1,6 +1,6 @@
 // controllers/productController.js
 
-const Service = require('../models/service');
+const Service = require('../models/services');
 const asyncHandler = require('express-async-handler');
 
 

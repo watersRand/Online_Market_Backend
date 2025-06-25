@@ -57,6 +57,8 @@ const authUser = asyncHandler(async (req, res) => {
             isAdmin: user.isAdmin,
             token: generateToken(user._id),
         });
+        req.session.user = user;
+        req.session.save();
     } else {
         res.status(401);
         throw new Error('Invalid email or password');
@@ -86,6 +88,7 @@ const deleteUserProfile = asyncHandler(async (req, res) => {
 
     if (user) {
         res.json("Sucess");
+        req.session.destroy();
     } else {
         res.status(404);
         throw new Error('User not found');
@@ -118,4 +121,11 @@ const updateUserById = (async (req, res) => {
     });
 });
 
-module.exports = { registerUser, authUser, getUserProfile, deleteUserProfile, updateUserById };
+
+const logout = (req, res) => {
+    req.session.destroy();
+    res.json("Your are logged out ");
+};
+
+
+module.exports = { registerUser, authUser, getUserProfile, deleteUserProfile, updateUserById, logout };

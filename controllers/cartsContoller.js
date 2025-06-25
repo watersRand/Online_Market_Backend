@@ -1,31 +1,47 @@
 // controllers/cartController.js
-const Cart = require('../models/Cart');
+const Cart = require('../models/carts');
 const Product = require('../models/Product'); // Assuming you have a Product model
 const asyncHandler = require('express-async-handler'); // For error handling
+const session = require('express-session');
+
 
 // Helper to get or create a cart based on user or session
 const getOrCreateCart = async (req) => {
     let cart;
+    let newCartData = {};
+
     if (req.user) { // Authenticated user
         cart = await Cart.findOne({ userId: req.user._id });
+        newCartData.userId = req.user._id;
     } else { // Anonymous user
-        // You might use a session ID from a cookie or header for anonymous users
-        let sessionId = req.headers['x-session-id'] || req.cookies.sessionId; // Example
-        if (!sessionId) {
-            sessionId = require('crypto').randomBytes(16).toString('hex'); // Generate if not present
-            // You'll need to send this sessionId back to the client via cookie or header
-            // For a real app, integrate with express-session or similar.
-            req.sessionId = sessionId; // Attach to request for response handling
-        }
+        // req.session.id is automatically managed by express-session
+        const sessionId = req.session.id;
         cart = await Cart.findOne({ sessionId: sessionId });
+        newCartData.sessionId = sessionId;
     }
 
     if (!cart) {
-        const newCartData = {};
-        if (req.user) newCartData.userId = req.user._id;
-        if (!req.user && req.sessionId) newCartData.sessionId = req.sessionId; // Use the generated session ID
         cart = new Cart(newCartData);
-        await cart.save();
+        try {
+            await cart.save();
+        } catch (error) {
+            // Handle potential race condition if two requests try to create the same cart concurrently
+            if (error.code === 11000) { // Duplicate key error (e.g., unique userId/sessionId constraint)
+                console.warn('Race condition detected creating cart, retrying find...');
+                // Retry finding the cart, as it might have been created by another concurrent request
+                if (req.user) {
+                    cart = await Cart.findOne({ userId: req.user._id });
+                } else {
+                    cart = await Cart.findOne({ sessionId: req.session.id });
+                }
+                if (!cart) {
+                    // If still no cart, something went wrong, re-throw or handle appropriately
+                    throw new Error('Failed to retrieve or create cart after race condition.');
+                }
+            } else {
+                throw error; // Re-throw other errors
+            }
+        }
     }
     return cart;
 };

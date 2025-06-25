@@ -20,7 +20,9 @@ const userSchema = new mongoose.Schema({
     purpose: {
         type: String,
         enum: ['Vendor', 'Delivery', 'Customer', 'Admin'],
+        default: 'Customer'
     },
+
 });
 
 userSchema.pre('save', async function (next) {

@@ -22,6 +22,11 @@ const cartItemSchema = new mongoose.Schema({
     },
     imageUrl: {
         type: String // Optional: store a thumbnail image URL
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'processing', 'approved', 'shipped', 'delivered', 'cancelled'],
+        default: 'pending'
     }
     // Add any other product specific attributes you need to store in the cart item
 }, { _id: false }); // Do not generate an _id for subdocuments if not needed
@@ -58,6 +63,15 @@ cartSchema.pre('save', function (next) {
     this.updatedAt = Date.now();
     this.totalPrice = this.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     next();
+});
+
+// Ensure that either userId or sessionId (but not both or neither) is present
+cartSchema.pre('validate', function (next) {
+    if ((this.userId && this.sessionId) || (!this.userId && !this.sessionId)) {
+        next(new Error('A cart must be associated with either a userId or a sessionId, but not both or neither.'));
+    } else {
+        next();
+    }
 });
 
 module.exports = mongoose.model('Cart', cartSchema);

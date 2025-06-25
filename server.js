@@ -4,7 +4,10 @@ const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
+const serviceRoutes = require('./routes/services')
+const orderRoutes = require('./routes/orders')
 const productRoutes = require('./routes/products');
+const cookieParser = require("cookie-parser");
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 dotenv.config();
@@ -41,6 +44,8 @@ app.use(session({
 
 app.use('/api/users', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/services', serviceRoutes)
+app.use('/api/orders', orderRoutes)
 app.get('/', (req, res) => {
     res.send('Hello Modesta from Taby')
 })
