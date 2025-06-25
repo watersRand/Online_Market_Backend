@@ -2,6 +2,8 @@ from django.contrib import admin
 from users.models import User
 from products.models import Product
 from orders.models import Order, OrderItem
+from payment.models import Payment
+from delivery.models import Delivery
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -30,3 +32,28 @@ class OrderAdmin(admin.ModelAdmin):
 class OrderItemAdmin(admin.ModelAdmin):
     list_display = ('order', 'product', 'quantity')
     list_filter = ('order__status',)
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'amount', 'status', 'mpesa_code', 'timestamp')
+    list_filter = ('status', 'timestamp')
+    search_fields = ('order__id', 'mpesa_code')
+
+@admin.register(Delivery)
+class DeliveryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'delivery_person', 'status', 'location', 'assigned_at')
+    list_filter = ('status', 'delivery_person')
+    search_fields = ('order__id', 'delivery_person__full_name')
+    actions = ['assign_delivery_person']
+
+    def assign_delivery_person(self, request, queryset):
+        if not request.POST.get('delivery_person_id'):
+            self.message_user(request, "Please select a delivery person.")
+            return
+        try:
+            delivery_person = User.objects.get(id=request.POST['delivery_person_id'], role='delivery_person')
+            queryset.update(delivery_person=delivery_person)
+            self.message_user(request, f"Assigned {delivery_person.full_name} to selected deliveries.")
+        except User.DoesNotExist:
+            self.message_user(request, "Delivery person not found.")
+    assign_delivery_person.short_description = "Assign selected deliveries to a delivery person"
