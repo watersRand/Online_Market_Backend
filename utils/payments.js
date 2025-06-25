@@ -1,8 +1,8 @@
 
-const Order = require('../models/order'); // From Phase 3
-const Payment = require('../models/payment');
-const { initiateSTKPush, querySTKPushStatus } = require('../utils/mpesa');
-const { generateDigitalReceipt } = require('../utils/receiptGenerator'); // We'll create this
+const Order = require('../models/carts'); // From Phase 3
+const Payment = require('../models/payments');
+const { initiateSTKPush, querySTKPushStatus } = require('../middleware/payments');
+const { generateDigitalReceipt } = require('./receipts'); // We'll create this
 
 // @desc    Initiate M-Pesa STK Push for an order
 // @route   POST /api/payments/initiate-stk
@@ -20,15 +20,16 @@ const initiateStk = async (req, res) => {
     }
 
     try {
-        const order = await Order.findById(orderId).populate('user'); // Populate user for receipt details
+        const order = await Order.findById(orderId).populate('userId'); // Populate user for receipt details
+        console.log(order)
         if (!order) {
             return res.status(404).json({ message: 'Order not found.' });
         }
 
         // Ensure the order belongs to the authenticated user
-        if (order.user._id.toString() !== req.user.id) {
-            return res.status(403).json({ message: 'Not authorized to pay for this order.' });
-        }
+        // if (order.userId._id.toString() !== req.user.id) {
+        //     return res.status(403).json({ message: 'Not authorized to pay for this order.' });
+        // }
 
         // Check if order is already paid or cancelled
         if (order.status === 'approved' || order.status === 'delivered' || order.status === 'cancelled') {
@@ -41,7 +42,7 @@ const initiateStk = async (req, res) => {
 
         // Create a new Payment record with 'initiated' status
         const payment = new Payment({
-            user: req.user.id,
+            // user: req.user.id,
             order: orderId,
             amount: amount,
             phoneNumber: phoneNumber,
@@ -80,6 +81,7 @@ const initiateStk = async (req, res) => {
 
     } catch (error) {
         console.error('Error in initiate-stk:', error);
+        console.log(error)
         res.status(500).json({ message: 'Server error initiating M-Pesa payment.' });
     }
 };

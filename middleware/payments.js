@@ -11,9 +11,9 @@ const SHORTCODE = process.env.MPESA_LIPA_NA_MPESA_SHORTCODE;
 const PASSKEY = process.env.MPESA_LIPA_NA_MPESA_PASSKEY;
 const CALLBACK_URL = process.env.MPESA_CALLBACK_URL; // Your public URL for M-Pesa callbacks
 
-const MPESA_AUTH_URL = 'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
-const MPESA_STK_PUSH_URL = 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
-const MPESA_QUERY_STATUS_URL = 'https://api.safaricom.co.ke/mpesa/stkpushquery/v1/queryid';
+let MPESA_AUTH_URL = 'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
+let MPESA_STK_PUSH_URL = 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
+let MPESA_QUERY_STATUS_URL = 'https://api.safaricom.co.ke/mpesa/stkpushquery/v1/queryid';
 
 // Use sandbox URLs for development:
 if (process.env.NODE_ENV !== 'production') {

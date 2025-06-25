@@ -121,11 +121,15 @@ const updateUserById = (async (req, res) => {
     });
 });
 
+const logoutUser = asyncHandler(async (req, res) => {
+    res.cookie('token', 'none', {
+        expires: new Date(Date.now() + 10 * 1000), // Expire immediately (10 seconds from now)
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Lax',
+    });
+    res.status(200).json({ message: 'Logged out successfully' });
+});
 
-const logout = (req, res) => {
-    req.session.destroy();
-    res.json("Your are logged out ");
-};
 
-
-module.exports = { registerUser, authUser, getUserProfile, deleteUserProfile, updateUserById, logout };
+module.exports = { registerUser, authUser, getUserProfile, deleteUserProfile, updateUserById, logoutUser };

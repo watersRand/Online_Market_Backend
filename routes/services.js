@@ -6,9 +6,9 @@ const { getServices, getServiceById, registerService, deleteServiceById, updateS
 const { authorize } = require('../middleware/authMiddleware')
 const router = express.Router();
 
-router.post('/', authorize([User]), registerService)
-    .post('/id', authorize([User]), deleteServiceById)
-    .post('/id', authorize([User]), updateServiceById)
+router.post('/', authorize(['admin']), registerService)
+    .post('/id', authorize(['admin']), deleteServiceById)
+    .post('/id', authorize(['admin']), updateServiceById)
 
 router.get('/', getServices)
     .get('/:id', getServiceById);

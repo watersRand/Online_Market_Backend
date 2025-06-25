@@ -7,16 +7,33 @@ const authRoutes = require('./routes/auth');
 const serviceRoutes = require('./routes/services')
 const orderRoutes = require('./routes/orders')
 const productRoutes = require('./routes/products');
+const deliveryRoutes = require('./routes/deliverys')
+const paymentRoutes = require('./routes/payments')
 const cookieParser = require("cookie-parser");
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
+
+const http = require('http'); // NEW: Import http module
+const connectDB = require('./config/db');
+const redisPubSubClient = require('./config/redis'); // Redis client for Pub/Sub (optional, but good to ensure connected)
+const { initSocket } = require('./config/socket');
+
 dotenv.config();
+redisPubSubClient; // Ensure Redis client starts connection
 
 connectDB();
+
+
+// Create an HTTP server from your Express app
+const httpServer = http.createServer(app);
+
+// Initialize Socket.IO with the HTTP server
+initSocket(httpServer); // Pass the httpServer to Socket.IO
 
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser())
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 
@@ -44,8 +61,11 @@ app.use(session({
 
 app.use('/api/users', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/payments', paymentRoutes)
 app.use('/api/services', serviceRoutes)
+app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/orders', orderRoutes)
+app.use('/api/notifications', notificationRoutes);
 app.get('/', (req, res) => {
     res.send('Hello Modesta from Taby')
 })
