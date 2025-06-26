@@ -2,6 +2,7 @@
 
 const express = require('express');
 const dotenv = require('dotenv');
+const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const serviceRoutes = require('./routes/services')
@@ -9,12 +10,17 @@ const orderRoutes = require('./routes/orders')
 const productRoutes = require('./routes/products');
 const deliveryRoutes = require('./routes/deliverys')
 const paymentRoutes = require('./routes/payments')
+const notificationRoutes = require('./routes/notification')
 const cookieParser = require("cookie-parser");
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 
+const vendorRoutes = require('./routes/vendor');
+const adminRoutes = require('./routes/admin');
+const complaintRoutes = require('./routes/complaints');
+
+
 const http = require('http'); // NEW: Import http module
-const connectDB = require('./config/db');
 const redisPubSubClient = require('./config/redis'); // Redis client for Pub/Sub (optional, but good to ensure connected)
 const { initSocket } = require('./config/socket');
 
@@ -23,6 +29,7 @@ redisPubSubClient; // Ensure Redis client starts connection
 
 connectDB();
 
+const app = express();
 
 // Create an HTTP server from your Express app
 const httpServer = http.createServer(app);
@@ -30,7 +37,6 @@ const httpServer = http.createServer(app);
 // Initialize Socket.IO with the HTTP server
 initSocket(httpServer); // Pass the httpServer to Socket.IO
 
-const app = express();
 
 app.use(express.json());
 app.use(cookieParser())
@@ -59,6 +65,14 @@ app.use(session({
     }
 }));
 
+// Option 3: Allow specific origin, methods, and headers (more granular)
+app.use(cors({
+    origin: 'http://localhost:5173', // Your React app's origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+    credentials: true // Allow cookies to be sent (if you use session cookies or HttpOnly JWT cookies)
+}));
+
 app.use('/api/users', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/payments', paymentRoutes)
@@ -66,6 +80,12 @@ app.use('/api/services', serviceRoutes)
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/orders', orderRoutes)
 app.use('/api/notifications', notificationRoutes);
+
+// NEW ADMIN AND COMPLAINT ROUTES
+app.use('/api/vendors', vendorRoutes); // For Super Admin to manage vendors
+app.use('/api/admin', adminRoutes);     // For admin dashboards and analytics
+app.use('/api/complaints', complaintRoutes); // For complaint handling
+
 app.get('/', (req, res) => {
     res.send('Hello Modesta from Taby')
 })

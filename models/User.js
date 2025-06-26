@@ -26,7 +26,19 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         required: true,
         default: false,
-    }
+    },
+    vendor: { // NEW: For Vendor Admins, links to the Vendor they manage
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Vendor',
+        required: false, // Not all users are vendor admins
+        unique: true, // A vendor can only have one primary owner/admin assigned this way
+        sparse: true, // Allows multiple documents to have null for this field
+    },
+    phoneNumber: { // Assuming added in Phase 6
+        type: String,
+        unique: true,
+        sparse: true,
+    },
 
 });
 

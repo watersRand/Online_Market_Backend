@@ -13,7 +13,7 @@ const generateToken = (id) => {
 
 // Register new user
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, phoneNumber, roles } = req.body;
 
     const userExists = await User.findOne({ email });
 
@@ -26,6 +26,8 @@ const registerUser = asyncHandler(async (req, res) => {
         name,
         email,
         password,
+        phoneNumber,
+        roles
     });
 
     if (user) {
@@ -33,7 +35,6 @@ const registerUser = asyncHandler(async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            isAdmin: user.isAdmin,
             token: generateToken(user._id),
         });
         res.session = user
@@ -54,11 +55,8 @@ const authUser = asyncHandler(async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            isAdmin: user.isAdmin,
             token: generateToken(user._id),
         });
-        req.session.user = user;
-        req.session.save();
     } else {
         res.status(401);
         throw new Error('Invalid email or password');
@@ -67,14 +65,14 @@ const authUser = asyncHandler(async (req, res) => {
 
 // Get user profile
 const getUserProfile = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user);
 
     if (user) {
         res.json({
             _id: user._id,
             name: user.name,
             email: user.email,
-            isAdmin: user.isAdmin,
+            phone: user.phoneNumber
         });
     } else {
         res.status(404);
@@ -84,7 +82,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
 
 // Get delete profile
 const deleteUserProfile = asyncHandler(async (req, res) => {
-    const user = await User.findByIdAndDelete(req.user._id);
+    const user = await User.findByIdAndDelete(req.user);
 
     if (user) {
         res.json("Sucess");
@@ -100,7 +98,7 @@ const updateUserById = (async (req, res) => {
     const { name, email, phone } = req.body;
 
     // Find the product by ID
-    let user = await User.findByIdAndUpdate(req.params.id);
+    let user = await User.findByIdAndUpdate(req.user);
 
     if (!user) {
         res.status(404);

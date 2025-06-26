@@ -7,13 +7,12 @@ const asyncHandler = require('express-async-handler');
 //Create services
 // Register new service
 const registerService = asyncHandler(async (req, res) => {
-    const { name, description, price, countInStock } = req.body;
+    const { name, description, price, category } = req.body;
 
     const service = await Service.create({
         name,
         description,
         price,
-        imageUrl,
         category
     });
 
@@ -32,7 +31,7 @@ const registerService = asyncHandler(async (req, res) => {
 // Fetch all products
 const getServices = asyncHandler(async (req, res) => {
     const services = await Service.find({});
-    res.json(servicess);
+    res.json(services);
 });
 
 // Fetch single product
