@@ -4,6 +4,7 @@ from products.models import Product
 from orders.models import Order, OrderItem
 from payment.models import Payment
 from delivery.models import Delivery
+from notifications.models import Notification
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -57,3 +58,9 @@ class DeliveryAdmin(admin.ModelAdmin):
         except User.DoesNotExist:
             self.message_user(request, "Delivery person not found.")
     assign_delivery_person.short_description = "Assign selected deliveries to a delivery person"
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'recipient', 'type', 'channel', 'phone_number', 'status', 'created_at')
+    list_filter = ('type', 'channel', 'status', 'created_at')
+    search_fields = ('recipient__full_name', 'phone_number', 'message')

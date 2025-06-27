@@ -20,3 +20,8 @@ class DeliveryStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields=['status', 'location']
+        
+        extra_kwargs = {
+            'status': {'required': True},
+            'location': {'required': False}
+        }

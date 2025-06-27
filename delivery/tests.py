@@ -62,17 +62,27 @@ class DeliveryTests(TestCase):
         self.assertEqual(delivery.delivery_person, self.delivery_person)
 
     def test_update_delivery_status(self):
-        delivery = Delivery.objects.create(order=self.order, delivery_person=self.delivery_person)
+        delivery = Delivery.objects.create(
+            order=self.order,
+            delivery_person=self.delivery_person,  # Make sure this is set
+            status='pending'
+        )
         self.client.force_authenticate(user=self.delivery_person)
-        response = self.client.put(f'/api/deliveries/{delivery.id}/status/', {
-            'status': 'in_transit',
-            'location': 'Campus B'
-        })
+        response = self.client.put(
+            f'/api/deliveries/{delivery.id}/status/',
+            {
+                'status': 'in_transit',
+                'location': 'Campus B'
+            },
+            format='json'
+        )
+        print(response.content)
+        
         self.assertEqual(response.status_code, 200)
         delivery.refresh_from_db()
         self.assertEqual(delivery.status, 'in_transit')
         self.assertEqual(delivery.location, 'Campus B')
-
+        
     def test_unauthorized_delivery_assignment(self):
         self.client.force_authenticate(user=self.customer)
         response = self.client.post('/api/deliveries/assign/', {
