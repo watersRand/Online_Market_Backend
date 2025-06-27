@@ -17,6 +17,7 @@ setuptools = "<81"
 psycopg = {extras = ["binary"], version = "^3.2.9"}
 pillow = "^11.2.1"
 requests = "^2.32.4"
+africastalking = "^1.2.9"
 
 
 [tool.poetry.group.dev.dependencies]

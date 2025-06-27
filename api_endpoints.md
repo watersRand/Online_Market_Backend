@@ -132,3 +132,38 @@
     ```
 - **Notes**:
   - Combine `type` and `category` for specific filtering (e.g., `/products/filter/?type=tangible&category=vegetable`).
+
+Notification Endpoints
+1. List Notifications
+
+Method: GET
+URL: /notifications/
+Description: Lists notifications (filtered by user role: admins see all, users see their own).
+Authentication: Required (JWT in Authorization: Bearer <access_token>).
+Response:
+200 OK:[
+  {
+    "id": integer,
+    "recipient": integer,
+    "type": "string (order_placed, payment_completed, delivery_assigned, delivery_status)",
+    "message": "string",
+    "phone_number": "string",
+    "status": "string (sent, failed)",
+    "created_at": "string (datetime)"
+  }
+]
+
+
+403 Forbidden:{
+  "detail": "You do not have permission to perform this action."
+}
+
+
+
+
+Notes:
+Admins see all notifications; customers, vendors, and delivery persons see only their own.
+
+
+
+

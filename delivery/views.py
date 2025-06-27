@@ -46,3 +46,6 @@ class DeliveryStatusView(generics.UpdateAPIView):
     queryset = Delivery.objects.all()
     serializer_class = DeliveryStatusSerializer
     permission_classes = [IsAdminOrDeliveryPerson]
+    
+    def perform_update(self, serializer):
+        serializer.save()
