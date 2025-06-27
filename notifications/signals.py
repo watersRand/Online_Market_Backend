@@ -7,6 +7,7 @@ from asgiref.sync import async_to_sync
 from orders.models import Order
 from payment.models import Payment
 from delivery.models import Delivery
+from core_admin.models import Complaint
 from .models import Notification
 
 # Initialize Africa's Talking SMS
@@ -163,3 +164,53 @@ def send_delivery_notifications(sender, instance, created, **kwargs):
                 status='failed'
             )
         send_in_app_notification(instance.order.customer, 'delivery_status', message)
+
+@receiver(post_save, sender=Complaint)
+def send_complaint_notifications(sender, instance, created, **kwargs):
+    if created:
+        # Customer SMS and In-App
+        message = f"Dear {instance.user.full_name}, your complaint #{instance.id} for Order #{instance.order.id} has been received."
+        try:
+            sms.send(message, [instance.user.phone])
+            Notification.objects.create(
+                recipient=instance.user,
+                type='complaint_status',
+                channel='sms',
+                message=message,
+                phone_number=instance.user.phone,
+                status='sent'
+            )
+        except Exception as e:
+            Notification.objects.create(
+                recipient=instance.user,
+                type='complaint_status',
+                channel='sms',
+                message=message,
+                phone_number=instance.user.phone,
+                status='failed'
+            )
+        send_in_app_notification(instance.user, 'complaint_status', message)
+
+    elif instance.status == 'resolved':
+        # Customer SMS and In-App
+        message = f"Dear {instance.user.full_name}, your complaint #{instance.id} for Order #{instance.order.id} has been resolved."
+        try:
+            sms.send(message, [instance.user.phone])
+            Notification.objects.create(
+                recipient=instance.user,
+                type='complaint_status',
+                channel='sms',
+                message=message,
+                phone_number=instance.user.phone,
+                status='sent'
+            )
+        except Exception as e:
+            Notification.objects.create(
+                recipient=instance.user,
+                type='complaint_status',
+                channel='sms',
+                message=message,
+                phone_number=instance.user.phone,
+                status='failed'
+            )
+        send_in_app_notification(instance.user, 'complaint_status', message)

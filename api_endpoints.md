@@ -146,6 +146,7 @@ Response:
     "id": integer,
     "recipient": integer,
     "type": "string (order_placed, payment_completed, delivery_assigned, delivery_status)",
+    "channel": "string (sms, in_app)",
     "message": "string",
     "phone_number": "string",
     "status": "string (sent, failed)",
@@ -163,6 +164,27 @@ Response:
 
 Notes:
 Admins see all notifications; customers, vendors, and delivery persons see only their own.
+
+
+
+2. Real-Time Notifications (WebSocket)
+
+Protocol: WebSocket
+URL: ws://<domain>/ws/notifications/
+Description: Establishes a WebSocket connection to receive real-time in-app notifications.
+Authentication: Required (JWT in Authorization: Bearer <access_token> header or as a subprotocol).
+Message Format:{
+  "type": "string (order_placed, payment_completed, delivery_assigned, delivery_status)",
+  "message": "string",
+  "created_at": "string (datetime)"
+}
+
+
+Notes:
+Connect using a WebSocket client with the user’s JWT token.
+Notifications are sent for order placement, payment completion, delivery assignment, and status updates.
+Example client (JavaScript):const socket = new WebSocket('ws://<domain>/ws/notifications/', ['jwt', '<your_jwt_token>']);
+socket.onmessage = (event) => console.log(JSON.parse(event.data));
 
 
 
