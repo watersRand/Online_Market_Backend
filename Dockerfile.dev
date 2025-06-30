@@ -1,0 +1,23 @@
+# Dockerfile for Node.js backend in development
+# Uses a lightweight Node.js image for development
+FROM node:20-alpine
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json first
+# This step is cached, so npm install only runs if dependencies change
+COPY package*.json .
+
+# Install Node.js dependencies
+# npm ci is preferred for CI/CD and consistent builds, but npm install is fine for dev
+RUN npm install
+
+COPY . ./
+# Expose the port your Node.js app listens on (e.g., 5000)
+EXPOSE 8080
+
+# Command to run the application in development mode
+# Assumes you have a "dev" script in your package.json, e.g., "nodemon src/server.js"
+CMD ["npm", "run", "dev"]
+

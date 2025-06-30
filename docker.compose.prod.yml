@@ -1,0 +1,99 @@
+# Docker Compose for Production Environment
+# Includes Node.js backend, MongoDB, Redis, and Nginx (for frontend & reverse proxy)
+
+version: '3.8'
+
+services:
+  redux:
+    build:
+      context: ./redux # Path to your backend Dockerfile.prod
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8080:8080" # Expose backend port (can be managed by Nginx later)
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      MONGO_URI: mongodb://mongo:27017/campus_delivery # Connect to MongoDB service
+      REDIS_URL: redis://redis:6379 # Connect to Redis service
+      REDIS_PORT: 6379
+      REDIS_HOST: redis
+      # IMPORTANT: Use Docker secrets or a secure method for production secrets (e.g., API keys, database credentials)
+      # MONGODB_USER: ${MONGO_INITDB_ROOT_USERNAME}
+      # MONGODB_PASS: ${MONGO_INITDB_ROOT_PASSWORD}
+    depends_on:
+      - mongo
+      - redis
+    restart: always # Ensure the service restarts if it crashes
+    networks:
+      - app-network
+
+  # frontend: # Optional: Uncomment if you have a separate frontend application served by Nginx
+  #   build:
+  #     context: ./frontend # Path to your frontend Dockerfile.prod (e.g., Nginx-based)
+  #     dockerfile: Dockerfile.prod
+  #   # Frontend port is usually handled by Nginx, not exposed directly
+  #   # ports:
+  #   #   - "80:80"
+  #   environment:
+  #     NODE_ENV: production
+  #     # Frontend in production often gets API URL from Nginx (e.g., /api)
+  #   depends_on:
+  #     - backend
+  #   restart: always
+  #   networks:
+  #     - app-network
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - mongo-data:/data/db # Persistent volume for MongoDB data
+    environment:
+      # IMPORTANT: Set strong credentials for production and use Docker secrets for these!
+      MONGO_INITDB_ROOT_USERNAME: your_mongo_user # Replace with a strong username
+      MONGO_INITDB_ROOT_PASSWORD: your_mongo_password # Replace with a strong password
+    # Ports usually not exposed directly in production, accessed only within the Docker network
+    # ports:
+    #   - "27017:27017"
+    restart: always
+    networks:
+      - app-network
+
+  redis:
+    image: redis:latest
+    volumes:
+      - redis-data:/data # Persistent volume for Redis data
+    # Optional: Add Redis password for production
+    # command: redis-server --requirepass your_redis_password
+    # Ports usually not exposed directly in production
+    # ports:
+    #   - "6379:6379"
+    restart: always
+    networks:
+      - app-network
+
+  nginx: # Optional but highly recommended: Reverse proxy for frontend and API
+    image: nginx:alpine
+    ports:
+      - "80:80" # Expose Nginx on standard HTTP port
+      - "443:443" # Expose Nginx on standard HTTPS port (if using SSL)
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro # Main Nginx config
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro       # Site-specific configs
+      # Optional: Volumes for Let's Encrypt / Certbot for HTTPS
+      # - ./certbot/www:/var/www/certbot:ro
+      # - ./certbot/conf:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend # Nginx serves frontend static files
+      - backend  # Nginx proxies API/Socket.IO requests
+    restart: always
+    networks:
+      - app-network
+
+volumes:
+  mongo-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge
+

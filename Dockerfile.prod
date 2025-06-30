@@ -1,0 +1,56 @@
+# Dockerfile for Node.js backend in production
+# Uses a multi-stage build for a smaller, more secure final image
+
+# --- Stage 1: Builder ---
+# This stage installs all dependencies and builds the application
+FROM node:20-alpine AS builder
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install only production dependencies
+# This keeps the final image smaller by not including dev dependencies
+RUN npm install --only=production
+
+# Copy all source code
+COPY . .
+
+# Run any build scripts if your Node.js app requires it (e.g., Babel, TypeScript compilation)
+# If you have a 'build' script in package.json (e.g., "babel src -d dist"), uncomment and adjust:
+# RUN npm run build
+
+# Remove npm cache to reduce image size
+RUN npm cache clean --force
+
+# --- Stage 2: Production Runtime ---
+# This stage uses a clean base image and copies only the necessary files for runtime
+FROM node:20-alpine
+
+# Set the working directory
+WORKDIR /app
+
+# Copy only node_modules and package*.json from the builder stage
+# This ensures a clean and minimal production environment
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+
+# Copy your compiled/source code.
+# Adjust the path based on where your main application files are (e.g., 'dist' if you have a build step)
+COPY --from=builder /app/src ./src # Assuming your main application logic is in a 'src' folder
+# If you had a build step, it might be:
+# COPY --from=builder /app/dist ./dist
+
+
+# Set NODE_ENV to production for optimized performance and error handling
+ENV NODE_ENV production
+
+# Expose the port your Node.js app listens on (e.g., 5000)
+EXPOSE 5000
+
+# Command to run the application in production mode
+# Assumes you have a "start" script in your package.json, e.g., "node src/server.js"
+CMD ["npm", "start"]
+

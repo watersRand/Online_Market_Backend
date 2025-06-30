@@ -1,26 +1,94 @@
-version: '3'
+# Docker Compose for Development Environment
+# Includes Node.js backend, MongoDB, Redis, and optional Frontend & Mongo Express
+
+version: '3.8'
+
 services:
-  nginx:
-    ports:
-      - "3000:80"
-  campus-delivery:
+  redux:
     build:
-      context: .
-      args:
-        - NODE_ENV=development
+      context: . # Path to your backend Dockerfile.dev
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080" # Expose backend port to host
     volumes:
-      - ./:/server
-      - /server/node_modules
+      - .:/app # Mount host code for hot-reloading
+      - /app/node_modules # Anonymous volume to prevent host node_modules interfering
     environment:
-      - NODE_ENV=development
-      - MONGO_USER=sanjeev
-      - MONGO_PASSWORD=mypassword
-      - SESSION_SECRET=secret
-    
+      NODE_ENV: development
+      PORT: 8080
+      MONGO_URI: mongodb://mongo:27017/ecommerce_dev # Connect to MongoDB service
+      REDIS_URL: redis://redis:6379 # Connect to Redis service
+      REDIS_PORT: 6379
+      REDIS_HOST: redis
+      # Add other development-specific environment variables here
+    depends_on:
+      - mongo # Ensure mongo starts before backend
+      - redis # Ensure redis starts before backend
+    networks:
+      - app-network
+
+  # frontend: # Optional: Uncomment if you have a separate frontend application
+  #   build:
+  #     context: ./frontend # Path to your frontend Dockerfile.dev
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3000:3000" # Expose frontend dev server port to host
+  #   volumes:
+  #     - ./frontend:/app # Mount host code for hot-reloading
+  #     - /app/node_modules
+  #   environment:
+  #     NODE_ENV: development
+  #     # Adjust REACT_APP_API_URL or similar based on your frontend framework
+  #     # If your frontend runs in the browser and talks to localhost, use localhost:5000
+  #     REACT_APP_API_URL: http://localhost:5000
+  #     # WDS_SOCKET_PORT=0 can fix WebSocket issues with Webpack Dev Server in Docker
+  #     WDS_SOCKET_PORT: 0
+  #   depends_on:
+  #     - backend # Frontend depends on backend for API access
+  #   networks:
+  #     - app-network
 
   mongo:
-    image: mongo
+    image: mongo:latest # Use the official MongoDB image
+    ports:
+      - "27017:27017" # Expose MongoDB port to host (useful for external tools)
+    volumes:
+      - mongo-data:/data/db # Persistent volume for MongoDB data
+    networks:
+      - app-network
+
+  redis:
+    image: redis:latest # Use the official Redis image
+    ports:
+      - "6379:6379" # Expose Redis port to host (useful for external tools)
+    volumes:
+      - redis-data:/data # Persistent volume for Redis data
+    networks:
+      - app-network
+
+  mongo-express: # Optional: Web-based MongoDB admin interface
+    image: mongo-express
+    ports:
+      - "8081:8081" # Access at http://localhost:8081
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=sanjeev
-      - MONGO_INITDB_ROOT_PASSWORD=mypassword
+      ME_CONFIG_MONGODB_SERVER: mongo # Connects to the 'mongo' service
+      ME_CONFIG_MONGODB_PORT: 27017
+      # Removed/commented out authentication variables as MongoDB in dev is typically without auth
+      # ME_CONFIG_MONGODB_ADMINUSERNAME: your_user
+      # ME_CONFIG_MONGODB_ADMINPASSWORD: your_password
+      # --- ADD THESE FOR MONGO EXPRESS UI BASIC AUTH ---
+      ME_CONFIG_BASICAUTH_USERNAME: admin # CHANGE THIS to a strong username
+      ME_CONFIG_BASICAUTH_PASSWORD: password # CHANGE THIS to a strong password
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+
+volumes:
+  mongo-data: # Define named volume for MongoDB data
+  redis-data: # Define named volume for Redis data
+
+networks:
+  app-network: # Define a custom bridge network for all services
+    driver: bridge
 
