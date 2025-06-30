@@ -1,8 +1,9 @@
-
+require('dotenv').config();
 const Order = require('../models/carts'); // From Phase 3
 const Payment = require('../models/payments');
 const { initiateSTKPush, querySTKPushStatus } = require('../middleware/payments');
 const { generateDigitalReceipt } = require('./receipts'); // We'll create this
+const { default: axios } = require('axios');
 
 // @desc    Initiate M-Pesa STK Push for an order
 // @route   POST /api/payments/initiate-stk
@@ -36,13 +37,14 @@ const initiateStk = async (req, res) => {
             return res.status(400).json({ message: `Order status is '${order.status}'. Cannot initiate payment.` });
         }
 
-        const amount = order.totalAmount;
+        const amount = order.totalPrice;
         const accountReference = order._id.toString(); // Use Order ID as reference
+
         const transactionDesc = `Payment for Order ${order._id}`;
 
         // Create a new Payment record with 'initiated' status
         const payment = new Payment({
-            // user: req.user.id,
+            user: req.user,
             order: orderId,
             amount: amount,
             phoneNumber: phoneNumber,
@@ -50,7 +52,8 @@ const initiateStk = async (req, res) => {
         });
         await payment.save();
 
-        const stkPushResponse = await initiateSTKPush(amount, phoneNumber, accountReference, transactionDesc);
+        const CallBackURL = process.env.MPESA_CALLBACK_URL;
+        const stkPushResponse = await initiateSTKPush(amount, phoneNumber, accountReference, transactionDesc, CallBackURL);
 
         // Update payment record with STK Push response details
         payment.mpesaRequest = {
@@ -58,7 +61,7 @@ const initiateStk = async (req, res) => {
             CheckoutRequestID: stkPushResponse.CheckoutRequestID,
             ResponseCode: stkPushResponse.ResponseCode,
             ResponseDescription: stkPushResponse.ResponseDescription,
-            CustomerMessage: stkPushResponse.CustomerMessage
+            CustomerMessage: stkPushResponse.CustomerMessage,
         };
         await payment.save();
 
@@ -66,7 +69,8 @@ const initiateStk = async (req, res) => {
             res.status(200).json({
                 message: 'STK Push initiated successfully. Please check your phone for the M-Pesa prompt.',
                 checkoutRequestId: stkPushResponse.CheckoutRequestID,
-                paymentId: payment._id
+                paymentId: payment._id,
+
             });
         } else {
             // M-Pesa API returned an error, not necessarily user cancellation
@@ -92,7 +96,8 @@ const initiateStk = async (req, res) => {
 // @access  Public (Called by Safaricom) - NO AUTHENTICATION HERE
 const mpesaCallback = async (req, res) => {
     // M-Pesa sends callback data in a specific structure
-    const callbackData = req.body;
+
+    // const callbackData = await axios.post(process.env.MPESA_CALLBACK_URL);
     console.log('M-Pesa Callback Received:', JSON.stringify(callbackData, null, 2));
 
     try {

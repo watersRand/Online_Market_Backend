@@ -11,8 +11,8 @@ const getOrCreateCart = async (req) => {
     let newCartData = {};
 
     if (req.user) { // Authenticated user
-        cart = await Cart.findOne({ userId: req.user._id });
-        newCartData.userId = req.user._id;
+        cart = await Cart.findOne({ userId: req.user });
+        newCartData.userId = req.user;
     } else { // Anonymous user
         // req.session.id is automatically managed by express-session
         const sessionId = req.session.id;
@@ -30,7 +30,7 @@ const getOrCreateCart = async (req) => {
                 console.warn('Race condition detected creating cart, retrying find...');
                 // Retry finding the cart, as it might have been created by another concurrent request
                 if (req.user) {
-                    cart = await Cart.findOne({ userId: req.user._id });
+                    cart = await Cart.findOne({ userId: req.user });
                 } else {
                     cart = await Cart.findOne({ sessionId: req.session.id });
                 }
@@ -92,12 +92,14 @@ exports.addItemToCart = asyncHandler(async (req, res) => {
             name: product.name,
             price: product.price,
             quantity: quantity,
-            imageUrl: product.imageUrl // Store image for display
+            imageUrl: product.imageUrl,
+            user: req.user,
+            // Store image for display
         });
     }
 
     await cart.save(); // This will trigger pre-save hook for totalPrice
-    res.status(200).json({ success: true, data: cart, sessionId: req.sessionId }); // Send session ID if newly generated
+    res.status(200).json({ success: true, data: cart, sessionId: req.sessionId, user: req.user }); // Send session ID if newly generated
 });
 
 // @desc    Update item quantity in cart

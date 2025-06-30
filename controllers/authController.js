@@ -13,7 +13,7 @@ const generateToken = (id) => {
 
 // Register new user
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password, phoneNumber, roles } = req.body;
+    const { name, email, password, phoneNumber, roles, isDeliveryPerson } = req.body;
 
     const userExists = await User.findOne({ email });
 
@@ -27,7 +27,8 @@ const registerUser = asyncHandler(async (req, res) => {
         email,
         password,
         phoneNumber,
-        roles
+        roles,
+        isDeliveryPerson
     });
 
     if (user) {

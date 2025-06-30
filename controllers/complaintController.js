@@ -9,15 +9,15 @@ const Vendor = require('../models/vendor'); // For validating vendor if provided
 // @access  Private/User
 const createComplaint = asyncHandler(async (req, res) => {
     const { vendorId, orderId, subject, description } = req.body;
-
+    console.log(req.user)
     if (!subject || !description) {
         res.status(400);
         throw new Error('Subject and description are required for a complaint.');
     }
 
     if (orderId) {
-        const order = await Order.findById(orderId);
-        if (!order || order.user.toString() !== req.user._id.toString()) {
+        const order = await Order.findById(orderId).populate();
+        if (!order || order.userId !== req.user) { //Order should belong to user
             res.status(404);
             throw new Error('Order not found or does not belong to the user.');
         }
@@ -32,7 +32,7 @@ const createComplaint = asyncHandler(async (req, res) => {
     }
 
     const complaint = new Complaint({
-        user: req.user._id,
+        user: req.user,
         vendor: vendorId,
         order: orderId,
         subject,

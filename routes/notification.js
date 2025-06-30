@@ -3,12 +3,15 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Notification = require('../models/notification');
 const asyncHandler = require('express-async-handler');
+const { triggerNotifications } = require('../utils/notificationService')
 
+
+router.post('/', protect, triggerNotifications)
 // @desc    Get logged in user's notifications
 // @route   GET /api/notifications
 // @access  Private
 router.get('/', protect, asyncHandler(async (req, res) => {
-    const notifications = await Notification.find({ user: req.user._id })
+    const notifications = await Notification.find({ user: req.user })
         .sort({ createdAt: -1 })
         .limit(50); // Limit to recent notifications
 
@@ -27,7 +30,7 @@ router.put('/:id/read', protect, asyncHandler(async (req, res) => {
     }
 
     // Ensure user owns the notification or is admin
-    if (notification.user.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+    if (notification.user.toString() !== req.user.toString() && !req.user.isAdmin) {
         res.status(403);
         throw new Error('Not authorized to mark this notification as read');
     }

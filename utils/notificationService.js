@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const mongoose = require('mongoose')
 const Notification = require('../models/notification');
 const redisPubSubClient = require('../config/redis'); // Your Redis Pub/Sub client
 const { getIo } = require('../config/socket'); // NEW: Import Socket.IO instance
@@ -92,34 +93,117 @@ const sendSMSNotification = async (phoneNumber, message) => {
  * @param {string} [referenceId] - Optional reference ID.
  * @param {string} [phoneNumber] - Optional phone number for SMS. If not provided, it will try to fetch from user.
  */
-const triggerNotifications = async (userId, message, type, referenceId = null, phoneNumber = null) => {
-    try {
-        // 1. Create persistent notification in DB
-        const notification = await createNotification(userId, message, type, referenceId);
+const triggerNotifications = async (req, res) => {
+    let { userId, message, type, referenceId, phoneNumber } = req.body;
 
-        // 2. Emit for real-time in-app
-        await emitInAppNotification({
-            userId: userId.toString(),
-            message,
-            type,
-            referenceId: referenceId ? referenceId.toString() : null,
-            notificationId: notification._id.toString(),
-            createdAt: notification.createdAt.toISOString()
+    // --- Input Validation and Sanitization ---
+    if (!userId || !message || !type) {
+        return res.status(400).json({
+            success: false,
+            message: 'Missing required fields: userId, message, and type are mandatory.'
         });
+    }
+
+    // Validate userId as a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid userId provided.'
+        });
+    }
+
+    // Sanitize referenceId if provided and validate it as an ObjectId
+    if (referenceId) {
+        // Trim any whitespace or unwanted characters (like the problematic trailing apostrophe)
+        if (typeof referenceId === 'string') {
+            referenceId = referenceId.trim().replace(/['"]/g, '');
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(referenceId)) {
+            console.warn(`Attempted to trigger notification with an invalid referenceId: "${req.body.referenceId}"`);
+            // Decide if this should be a hard error (400) or just ignore the referenceId
+            // For now, let's treat it as a warning and proceed without a referenceId.
+            // If you *always* expect a valid referenceId, uncomment the return below.
+            // return res.status(400).json({ success: false, message: 'Invalid referenceId provided.' });
+            referenceId = null; // Set to null if invalid to prevent further casting errors
+        }
+    }
+
+
+    try {
+        let notification;
+        try {
+            // 1. Create persistent notification in DB
+            // Ensure createNotification handles null/undefined referenceId gracefully
+            notification = await createNotification(userId, message, type, referenceId);
+        } catch (dbError) {
+            console.error('Failed to create persistent notification in DB:', dbError);
+            // Decide if this is a fatal error or if other notifications should still attempt to send
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to create persistent notification.',
+                error: dbError.message
+            });
+        }
+
+
+        // 2. Emit for real-time in-app notification
+        // Use a separate try-catch for non-critical operations, or log and continue
+        try {
+            await emitInAppNotification({
+                userId: userId.toString(), // Ensure userId is string for emit
+                message,
+                type,
+                referenceId: referenceId ? referenceId.toString() : null, // Ensure referenceId is string or null
+                notificationId: notification._id.toString(), // Convert ObjectId to string
+                createdAt: notification.createdAt.toISOString()
+            });
+        } catch (inAppError) {
+            console.error('Failed to emit in-app notification:', inAppError);
+            // This is often not a critical failure, so we just log and continue.
+        }
+
 
         // 3. Send SMS (if phone number provided or fetched)
-        if (!phoneNumber) {
-            const user = await User.findById(userId).select('phone');
-            if (user && user.phone) {
-                phoneNumber = user.phone;
+        let actualPhoneNumber = phoneNumber; // Use a new variable to avoid reassigning original req.body.phoneNumber
+
+        if (!actualPhoneNumber) {
+            try {
+                const user = await User.findById(userId).select('phone');
+                if (user && user.phone) {
+                    actualPhoneNumber = user.phone;
+                }
+            } catch (userFetchError) {
+                console.error('Failed to fetch user phone number for SMS:', userFetchError);
+                // Continue without SMS if phone number cannot be fetched
             }
         }
-        if (phoneNumber) {
-            await sendSMSNotification(phoneNumber, message);
+
+        if (actualPhoneNumber) {
+            try {
+                await sendSMSNotification(actualPhoneNumber, message);
+            } catch (smsError) {
+                console.error('Failed to send SMS notification:', smsError);
+                // This is often not a critical failure, so we just log and continue.
+            }
         }
 
+        // Respond with success after all attempts
+        res.status(200).json({
+            success: true,
+            message: 'Notification trigger process completed. Check logs for individual failures.',
+            notificationId: notification._id.toString()
+        });
+
     } catch (error) {
-        console.error('Failed to trigger all notifications:', error);
+        // This catch block is primarily for unexpected errors, as most anticipated errors
+        // are handled in their respective try-catch blocks or by early exits.
+        console.error('An unexpected error occurred during notification triggering:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An unexpected internal server error occurred.',
+            error: error.message
+        });
     }
 };
 

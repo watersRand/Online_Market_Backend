@@ -38,6 +38,9 @@ const userSchema = new mongoose.Schema({
         type: String,
         unique: true,
         sparse: true,
+        trim: true,
+        // Basic regex for international phone numbers, adjust as needed
+        match: /^\+\d{10,15}$/
     },
 
 });
