@@ -6,7 +6,7 @@ authors = ["Benaiah Galavu <bentheaya@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 django = "4.2"
 psycopg2-binary = "2.9"
 djangorestframework = "3.14"

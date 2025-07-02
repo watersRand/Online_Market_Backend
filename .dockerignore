@@ -1,0 +1,11 @@
+.git
+.gitignore
+.dockerignore
+.env
+venv/
+__pycache__/
+*.pyc
+*.log
+media/ # If you store user-uploaded media locally, don't include it in the image
+static/ # If you collect static files locally, don't include them in the image
+node_modules/ # If you have frontend assets
