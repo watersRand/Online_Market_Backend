@@ -22,6 +22,14 @@ const serviceSchema = new mongoose.Schema({
     category: {
         type: String,
         enum: ['Barber and Beauty', 'Computer repair', 'Landscape']
+    },
+    review: {
+        type: String,
+        required: false
+    },
+    choice: {
+        type: String,
+        enum: ['Independent', 'Company']
     }
 });
 

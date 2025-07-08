@@ -6,7 +6,7 @@ version: '3.8'
 services:
   redux:
     build:
-      context: ./redux # Path to your backend Dockerfile.prod
+      context: . # Path to your backend Dockerfile.prod
       dockerfile: Dockerfile.prod
     ports:
       - "8080:8080" # Expose backend port (can be managed by Nginx later)
@@ -49,8 +49,8 @@ services:
       - mongo-data:/data/db # Persistent volume for MongoDB data
     environment:
       # IMPORTANT: Set strong credentials for production and use Docker secrets for these!
-      MONGO_INITDB_ROOT_USERNAME: your_mongo_user # Replace with a strong username
-      MONGO_INITDB_ROOT_PASSWORD: your_mongo_password # Replace with a strong password
+      MONGO_INITDB_ROOT_USERNAME: admin # Replace with a strong username
+      MONGO_INITDB_ROOT_PASSWORD: password # Replace with a strong password
     # Ports usually not exposed directly in production, accessed only within the Docker network
     # ports:
     #   - "27017:27017"
@@ -82,8 +82,7 @@ services:
       # Optional: Volumes for Let's Encrypt / Certbot for HTTPS
       # - ./certbot/www:/var/www/certbot:ro
       # - ./certbot/conf:/etc/nginx/ssl:ro
-    depends_on:
-      - frontend # Nginx serves frontend static files
+    depends_on: # Nginx serves frontend static files
       - backend  # Nginx proxies API/Socket.IO requests
     restart: always
     networks:

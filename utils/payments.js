@@ -8,7 +8,7 @@ const { default: axios } = require('axios');
 // @desc    Initiate M-Pesa STK Push for an order
 // @route   POST /api/payments/initiate-stk
 // @access  Private (User)
-const initiateStk = async (req, res) => {
+const initiateStk = async (req, res, next) => {
     const { orderId, phoneNumber } = req.body; // phoneNumber should be from the user's input/profile
 
     if (!orderId || !phoneNumber) {
@@ -70,8 +70,9 @@ const initiateStk = async (req, res) => {
                 message: 'STK Push initiated successfully. Please check your phone for the M-Pesa prompt.',
                 checkoutRequestId: stkPushResponse.CheckoutRequestID,
                 paymentId: payment._id,
-
             });
+            next();
+
         } else {
             // M-Pesa API returned an error, not necessarily user cancellation
             payment.status = 'failed';

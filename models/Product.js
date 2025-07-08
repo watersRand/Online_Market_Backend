@@ -28,6 +28,14 @@ const productSchema = mongoose.Schema({
         enum: ['Electronics', 'Beauty', 'Food and Drinks', 'Fruits'],
         required: true,
     },
+    weight: {
+        type: Number,
+        required: true
+    },
+    colour: {
+        type: String,
+        required: true
+    },
     price: {
         type: Number,
         required: true,
@@ -38,6 +46,10 @@ const productSchema = mongoose.Schema({
         required: true,
         default: 0,
     },
+    review: {
+        required: false,
+        type: String
+    }
 
 }, {
     timestamps: true,

@@ -9,14 +9,14 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package.json and package-lock.json
-COPY package*.json ./
+COPY package*.json .
 
 # Install only production dependencies
 # This keeps the final image smaller by not including dev dependencies
 RUN npm install --only=production
 
 # Copy all source code
-COPY . .
+COPY . ./
 
 # Run any build scripts if your Node.js app requires it (e.g., Babel, TypeScript compilation)
 # If you have a 'build' script in package.json (e.g., "babel src -d dist"), uncomment and adjust:
@@ -48,7 +48,7 @@ COPY --from=builder /app/src ./src # Assuming your main application logic is in 
 ENV NODE_ENV production
 
 # Expose the port your Node.js app listens on (e.g., 5000)
-EXPOSE 5000
+EXPOSE 8080
 
 # Command to run the application in production mode
 # Assumes you have a "start" script in your package.json, e.g., "node src/server.js"
