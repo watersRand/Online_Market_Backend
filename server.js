@@ -20,22 +20,22 @@ const adminRoutes = require('./routes/admin');
 const complaintRoutes = require('./routes/complaints');
 
 
-const http = require('http'); // NEW: Import http module
-const redisPubSubClient = require('./config/redis'); // Redis client for Pub/Sub (optional, but good to ensure connected)
-const { initSocket } = require('./config/socket');
+// const http = require('http'); // NEW: Import http module
+// const redisPubSubClient = require('./config/redis'); // Redis client for Pub/Sub (optional, but good to ensure connected)
+// const { initSocket } = require('./config/socket');
 
 dotenv.config();
-redisPubSubClient; // Ensure Redis client starts connection
+// redisPubSubClient; // Ensure Redis client starts connection
 
 connectDB();
 
 const app = express();
 
 // Create an HTTP server from your Express app
-const httpServer = http.createServer(app);
+//const httpServer = http.createServer(app);
 
 // Initialize Socket.IO with the HTTP server
-initSocket(httpServer); // Pass the httpServer to Socket.IO
+//initSocket(httpServer); // Pass the httpServer to Socket.IO
 
 
 app.use(express.json());
@@ -67,7 +67,7 @@ app.use(session({
 
 // Option 3: Allow specific origin, methods, and headers (more granular)
 app.use(cors({
-    origin: 'http://localhost:5173', // Your React app's origin
+    origin: '*', // Your React app's origin
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
     credentials: true // Allow cookies to be sent (if you use session cookies or HttpOnly JWT cookies)
