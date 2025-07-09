@@ -1,75 +1,28 @@
-name: Django CI/CD # Name of your workflow
+    name: Django CI/CD
 
-on:
-  push:
-    branches:
-      - main # This workflow will trigger on pushes to the 'main' branch
+    on:
+      push:
+        branches:
+          - main
+      pull_request:
+        branches:
+          - main
 
-jobs:
-  build:
-    runs-on: ubuntu-latest # Specifies the operating system for the job runner
-    strategy:
-      matrix:
-        # Define the Python versions you want to test against.
-        # You can add more versions (e.g., "3.9", "3.11") to test compatibility.
-        python-version: ["3.10"]
+    jobs:
+      quality_assurance:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.9' # or your project's Python version
+          - name: Install Poetry
+            uses: snok/install-poetry@v1
+          - name: Install dependencies
+            run: poetry install --no-root
+          - name: Run tests
+            run: poetry run python manage.py test
+     
 
-    steps:
-      # Step 1: Checkout the repository code
-      # This action checks out your repository under $GITHUB_WORKSPACE,
-      # so your workflow can access it.
-      - uses: actions/checkout@v3
 
-      # Step 2: Set up Python environment
-      # This action sets up a Python environment with the specified version
-      # and caches Poetry dependencies for faster subsequent runs.
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }} # Uses the Python version from the matrix
-          cache: 'poetry' # Caches Poetry's dependency files
-
-      # Step 3: Install Poetry
-      # This action installs Poetry, a dependency management tool for Python.
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        id: install-poetry # Added an ID to reference outputs
-        with:
-          # Specify a Poetry version. '1.x.x' is good for the latest 1.x.x release,
-          # or you can pin to a specific version like '1.8.2'.
-          version: 1.8.3
-          virtualenvs-create:  true
-          virtualenvs-in-project:  true
-
-      # Step 4: Add Poetry to PATH explicitly
-      # The snok/install-poetry action should add Poetry to the PATH,
-      # but if you're encountering "executable not found" errors,
-      # explicitly adding it using its output can resolve the issue.
-      - name: Add Poetry to PATH
-        run: echo "${{ steps.install-poetry.outputs.poetry-path }}" >> $GITHUB_PATH
-        # This line appends the path where Poetry is installed to the GITHUB_PATH
-        # environment variable, making it available for subsequent steps.
-
-      # Step 5: Configure Poetry for in-project virtualenvs
-      # This step ensures that Poetry creates virtual environments directly within
-      # your project directory, which is beneficial for consistent caching
-      # and local development parity with the CI environment.
-      - name: Configure Poetry for in-project virtualenvs
-        run: |
-          poetry config virtualenvs.in-project true
-
-      # Step 6: Install project dependencies with Poetry
-      # This command installs all dependencies listed in your pyproject.toml file.
-      # --no-interaction: Prevents Poetry from asking interactive questions.
-      # --no-root: Prevents Poetry from installing the root package itself.
-      - name: Install Dependencies with Poetry
-        run: |
-          poetry install --no-interaction --no-root
-
-      # Step 7: Run Django tests using Poetry's virtual environment
-      # This command executes your Django project's test suite.
-      # 'poetry run' ensures that the command is executed within the virtual environment
-      # managed by Poetry, making sure all project dependencies are available.
-      - name: Run Tests with Poetry
-        run: |
-          poetry run python manage.py test
+   
