@@ -33,12 +33,22 @@ jobs:
       # This action installs Poetry, a dependency management tool for Python.
       - name: Install Poetry
         uses: snok/install-poetry@v1
+        id: install-poetry # Added an ID to reference outputs
         with:
           # Specify a Poetry version. '1.x.x' is good for the latest 1.x.x release,
           # or you can pin to a specific version like '1.8.2'.
           version: 1.x.x
 
-      # Step 4: Configure Poetry for in-project virtualenvs
+      # Step 4: Add Poetry to PATH explicitly
+      # The snok/install-poetry action should add Poetry to the PATH,
+      # but if you're encountering "executable not found" errors,
+      # explicitly adding it using its output can resolve the issue.
+      - name: Add Poetry to PATH
+        run: echo "${{ steps.install-poetry.outputs.poetry-path }}" >> $GITHUB_PATH
+        # This line appends the path where Poetry is installed to the GITHUB_PATH
+        # environment variable, making it available for subsequent steps.
+
+      # Step 5: Configure Poetry for in-project virtualenvs
       # This step ensures that Poetry creates virtual environments directly within
       # your project directory, which is beneficial for consistent caching
       # and local development parity with the CI environment.
@@ -46,7 +56,7 @@ jobs:
         run: |
           poetry config virtualenvs.in-project true
 
-      # Step 5: Install project dependencies with Poetry
+      # Step 6: Install project dependencies with Poetry
       # This command installs all dependencies listed in your pyproject.toml file.
       # --no-interaction: Prevents Poetry from asking interactive questions.
       # --no-root: Prevents Poetry from installing the root package itself.
@@ -54,7 +64,7 @@ jobs:
         run: |
           poetry install --no-interaction --no-root
 
-      # Step 6: Run Django tests using Poetry's virtual environment
+      # Step 7: Run Django tests using Poetry's virtual environment
       # This command executes your Django project's test suite.
       # 'poetry run' ensures that the command is executed within the virtual environment
       # managed by Poetry, making sure all project dependencies are available.
