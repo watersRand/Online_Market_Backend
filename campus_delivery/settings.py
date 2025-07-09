@@ -14,6 +14,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Cloudinary Image upload
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
 # Load environment variables
 load_dotenv()
 
@@ -57,6 +62,9 @@ INSTALLED_APPS = [
     'products',
     'payment',
     'notifications',
+    # Image-Upload
+    'cloudinary',
+    'cloudinary_storage' 
 ]
 
 MIDDLEWARE = [
@@ -208,3 +216,11 @@ else:
 AT_USERNAME = os.getenv('AT_USERNAME')
 AT_API_KEY = os.getenv('AT_API_KEY')
 AT_SENDER_ID = os.getenv('AT_SENDER_ID')
+
+# CLoudinary Image upload
+cloudinary.config( 
+  	cloud_name = "your_cloud_name",
+  	api_key = "your_api_key",
+  	api_secret = "your_api_secret"
+)
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
