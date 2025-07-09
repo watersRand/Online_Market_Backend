@@ -32,12 +32,12 @@ jobs:
       # Step 3: Install Poetry
       # This action installs Poetry, a dependency management tool for Python.
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        uses: python pip install-poetry@v1
         id: install-poetry # Added an ID to reference outputs
         with:
           # Specify a Poetry version. '1.x.x' is good for the latest 1.x.x release,
           # or you can pin to a specific version like '1.8.2'.
-          version: 1.x.x
+          version: 1.8.2
 
       # Step 4: Add Poetry to PATH explicitly
       # The snok/install-poetry action should add Poetry to the PATH,
