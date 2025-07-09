@@ -87,7 +87,7 @@ app.use('/api/admin', adminRoutes);     // For admin dashboards and analytics
 app.use('/api/complaints', complaintRoutes); // For complaint handling
 
 app.get('/', (req, res) => {
-    res.send('Hello Modesta from Taby')
+    res.send('Hello Modesta from Dorothy')
 })
 
 app.use(notFound);
