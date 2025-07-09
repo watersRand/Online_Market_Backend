@@ -3,7 +3,7 @@ name: Node.js CI/CD with MongoDB and Redis
 on:
   push:
     branches:
-      - main # Trigger on pushes to the main branch
+      - feature/js # Trigger on pushes to the main branch
 
 jobs:
   build-and-test:
