@@ -32,7 +32,7 @@ jobs:
         run: npm install # Install project dependencies
 
       - name: Run tests
-        run: npm run build # Execute your application's tests
+        run: npm run dev # Execute your application's tests
         env:
           MONGO_URI: mongodb://localhost:27017/testdb # Set MongoDB URI for tests
           REDIS_HOST: localhost # Set Redis host for tests
