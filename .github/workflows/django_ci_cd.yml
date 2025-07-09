@@ -4,25 +4,41 @@ on:
   push:
     branches:
       - main
-
+ 
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10"] # Ensure these match your project's supported Python versions
 
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4 # Use a more recent version for setup-python
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Dependencies
+          cache: 'poetry' # This enables caching for Poetry dependencies
+
+      - name: Install Poetry
+        # The setup-python@v4 action with cache: 'poetry' often handles installing Poetry
+        # and restoring the cache for you. However, if you need a specific Poetry version
+        # or more control, you can use a dedicated action like snok/install-poetry.
+        # For simplicity, we'll assume setup-python's cache: 'poetry' is sufficient.
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run Tests
+          pip install poetry # Install poetry itself
+          poetry config virtualenvs.in-project true # Create .venv in project root for easier caching
+
+      - name: Install Dependencies with Poetry
         run: |
-          python manage.py test
+          # poetry install will read pyproject.toml and poetry.lock
+          # --no-interaction: Prevents prompts
+          # --no-root: Installs dependencies but not the project itself (useful for CI builds)
+          poetry install --no-interaction --no-root
+
+      - name: Run Tests with Poetry
+        run: |
+          # poetry run executes the command within Poetry's virtual environment
+          poetry run python manage.py test
