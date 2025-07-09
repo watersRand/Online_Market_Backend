@@ -1,0 +1,39 @@
+name: Node.js CI/CD with MongoDB and Redis
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest # Use a fresh Ubuntu environment
+
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017 # Map MongoDB's default port
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379 # Map Redis's default port
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Get your repository's code
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Specify your desired Node.js version
+
+      - name: Install dependencies
+        run: npm install # Install project dependencies
+
+      - name: Run tests
+        run: npm run build # Execute your application's tests
+        env:
+          MONGO_URI: mongodb://localhost:27017/testdb # Set MongoDB URI for tests
+          REDIS_HOST: localhost # Set Redis host for tests
+          REDIS_PORT: 6379 # Set Redis port for tests
