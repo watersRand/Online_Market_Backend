@@ -1,6 +1,6 @@
 from django.db import models
 from users.models import User
-from cloudinary.models import CLoudinaryField
+from cloudinary.models import CloudinaryField
 
 class Product(models.Model):
     TYPE_CHOICES = (
@@ -21,7 +21,7 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=0)  # For tangible products; 0 for services
-    image = CLoudinaryField('image',blank=True,null=True)
+    image = CloudinaryField('image',blank=True,null=True)
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='tangible')
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='other')
     created_at = models.DateTimeField(auto_now_add=True)
