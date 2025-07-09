@@ -20,22 +20,22 @@ const adminRoutes = require('./routes/admin');
 const complaintRoutes = require('./routes/complaints');
 
 
-// const http = require('http'); // NEW: Import http module
-// const redisPubSubClient = require('./config/redis'); // Redis client for Pub/Sub (optional, but good to ensure connected)
-// const { initSocket } = require('./config/socket');
+const http = require('http'); // NEW: Import http module
+const redisPubSubClient = require('./config/redis'); // Redis client for Pub/Sub (optional, but good to ensure connected)
+const { initSocket } = require('./config/socket');
 
 dotenv.config();
-// redisPubSubClient; // Ensure Redis client starts connection
+redisPubSubClient; // Ensure Redis client starts connection
 
 connectDB();
 
 const app = express();
 
 // Create an HTTP server from your Express app
-//const httpServer = http.createServer(app);
+const httpServer = http.createServer(app);
 
 // Initialize Socket.IO with the HTTP server
-//initSocket(httpServer); // Pass the httpServer to Socket.IO
+initSocket(httpServer); // Pass the httpServer to Socket.IO
 
 
 app.use(express.json());
