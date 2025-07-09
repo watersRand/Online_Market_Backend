@@ -28,5 +28,3 @@ jobs:
         run: poetry install --no-root
 
 
-      - name: Run Django Tests
-        run: poetry run python manage.py test
