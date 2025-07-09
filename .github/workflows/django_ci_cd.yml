@@ -3,50 +3,38 @@ name: Django CI/CD
 on:
   push:
     branches:
-      - main # This workflow will run on pushes to the 'main' branch
+      - main
+
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Specifies the operating system for the job
+    runs-on: ubuntu-latest
     strategy:
-      matrix:
-        # Define the Python versions you want to test against.
-        # Currently set to 3.10 as per your original request.
-        # You can add more versions like '3.9', '3.11' if needed.
         python-version: ["3.10"]
 
     steps:
-      # Step 1: Checkout the repository code
       - uses: actions/checkout@v3
 
-      # Step 2: Set up Python environment
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }} # Uses the Python version from the matrix
-          cache: 'poetry' # Caches Poetry dependencies for faster builds
+          python-version: ${{ matrix.python-version }}
+          cache: 'poetry' # Keep this for dependency caching
 
-      # Step 3: Install Poetry
       - name: Install Poetry
-        # Uses a specific action to install Poetry, ensuring consistency
-        uses: pip install-poetry@v1
+        uses: snok/install-poetry@v1 # Use this action to install Poetry
+        with:
+          version: 1.8 # Specify a version or leave empty for latest. e.g., 1.8.2
 
-
-      # Step 4: Configure Poetry to create virtual environments within the project
-      # This helps with consistent caching and local development parity
       - name: Configure Poetry for in-project virtualenvs
+        # This step is important for consistent caching and local development
         run: |
           poetry config virtualenvs.in-project true
 
-      # Step 5: Install project dependencies using Poetry
       - name: Install Dependencies with Poetry
         run: |
-          # --no-interaction: Do not ask any interactive questions.
-          # --no-root: Do not install the root package itself.
           poetry install --no-interaction --no-root
 
-      # Step 6: Run Django tests using Poetry's virtual environment
       - name: Run Tests with Poetry
         run: |
-          # Corrected command: removed the trailing ".."
           poetry run python manage.py test
