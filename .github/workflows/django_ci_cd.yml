@@ -1,40 +1,32 @@
-name: Django CI/CD
+name: Django CI/CD with Poetry
 
 on:
   push:
     branches:
       - main
-
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-        python-version: ["3.10"]
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'poetry' # Keep this for dependency caching
+          python-version: '3.10' # Or your desired Python version
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1 # Use this action to install Poetry
-        with:
-          version: 1.8 # Specify a version or leave empty for latest. e.g., 1.8.2
+        run: pip install poetry
 
-      - name: Configure Poetry for in-project virtualenvs
-        # This step is important for consistent caching and local development
-        run: |
-          poetry config virtualenvs.in-project true
+      - name: Install dependencies with Poetry
+        run: poetry install --no-root
 
-      - name: Install Dependencies with Poetry
-        run: |
-          poetry install --no-interaction --no-root
 
-      - name: Run Tests with Poetry
-        run: |
-          poetry run python manage.py test
+      - name: Run Django Tests
+        run: poetry run python manage.py test
