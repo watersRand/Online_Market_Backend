@@ -33,7 +33,7 @@ jobs:
         with:
           # Specify a Poetry version. '1.x.x' is good for latest 1.x.x,
           # or you can use a precise version like '1.8.2'
-          version: 1.x.x
+          version: 1.8.2
 
       # Step 4: Configure Poetry to create virtual environments within the project
       # This helps with consistent caching and local development parity
