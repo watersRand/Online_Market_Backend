@@ -16,6 +16,8 @@ const registerService = asyncHandler(async (req, res) => {
         category
     });
 
+    await invalidateCache('services:/api/services*');
+
     if (service) {
         res.status(201).json({
             _id: service._id,
@@ -49,6 +51,11 @@ const getServiceById = asyncHandler(async (req, res) => {
 //Delete single product
 const deleteServiceById = asyncHandler(async (req, res) => {
     const service = await Service.findByIdAndDelete(req.params.id);
+    await invalidateCache([
+        `services:/api/services/${req.params.id}`, // Specific product by ID
+        'services:/api/services*'                  // All product list views
+    ]);
+
 
     if (service) {
         res.json('Sucess');
@@ -79,6 +86,10 @@ const updateServiceById = (async (req, res) => {
     service.imageUrl = imageUrl || service.imageUrl;
 
     const updatedService = await service.save(); // .save() will run pre-save hooks (like updatedAt)
+    await invalidateCache([
+        `services:/api/services/${req.params.id}`, // Specific product by ID
+        'services:/api/services*'                  // All product list views
+    ]);
 
     res.status(200).json({
         success: true,

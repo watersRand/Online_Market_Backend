@@ -2,6 +2,8 @@ const asyncHandler = require('express-async-handler');
 const Delivery = require('../models/delivery');
 const Order = require('../models/carts');
 const User = require('../models/User'); // To check if user is a delivery person
+const { invalidateCache } = require('../controllers/cacheController')
+
 
 // @desc    Assign an order to a delivery person
 // @route   POST /api/deliveries/assign
@@ -46,6 +48,8 @@ const assignDelivery = asyncHandler(async (req, res) => {
     });
 
     const createdDelivery = await delivery.save();
+    await invalidateCache('deliveries:/api/deliveries*');
+
 
     // Optionally update the order status as well
     order.status = 'assigned-for-delivery';
@@ -91,6 +95,10 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
     }
 
     const updatedDelivery = await delivery.save(); // The pre/post hooks handle timestamps and order status
+    await invalidateCache([
+        `deliveries:/api/deliveries/${req.params.id}`, // Specific product by ID
+        'deliveries:/api/deliveries*'                  // All product list views
+    ]);
 
     res.json(updatedDelivery);
 });

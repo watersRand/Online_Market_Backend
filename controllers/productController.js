@@ -2,6 +2,8 @@ const asyncHandler = require('express-async-handler');
 const Product = require('../models/Product');
 const Vendor = require('../models/vendor'); // Import Vendor model
 const User = require('../models/User')
+const { invalidateCache } = require('../controllers/cacheController')
+
 
 // @desc    Create a product
 // @route   POST /api/products
@@ -40,6 +42,7 @@ const createProduct = asyncHandler(async (req, res) => {
     });
 
     const createdProduct = await product.save();
+    await invalidateCache('products:/api/products*');
     res.status(201).json(createdProduct);
 });
 
@@ -66,6 +69,11 @@ const updateProduct = asyncHandler(async (req, res) => {
         product.countInStock = countInStock !== undefined ? countInStock : product.countInStock;
 
         const updatedProduct = await product.save();
+
+        await invalidateCache([
+            `products:/api/products/${req.params.id}`, // Specific product by ID
+            'products:/api/products*'                  // All product list views
+        ]);
         res.json(updatedProduct);
     } else {
         res.status(404);
@@ -86,6 +94,11 @@ const deleteProduct = asyncHandler(async (req, res) => {
             throw new Error('Not authorized to delete products.');
         }
         await Product.deleteOne({ _id: product._id });
+
+        await invalidateCache([
+            `products:/api/products/${req.params.id}`, // Specific product by ID
+            'products:/api/products*'                  // All product list views
+        ]);
         res.json({ message: 'Product removed' });
     } else {
         res.status(404);

@@ -1,6 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const Vendor = require('../models/vendor');
 const User = require('../models/User');
+const { invalidateCache } = require('../controllers/cacheController')
+
 
 // @desc    Create a new vendor
 // @route   POST /api/vendors
@@ -37,6 +39,8 @@ const createVendor = asyncHandler(async (req, res) => {
     });
 
     const createdVendor = await vendor.save();
+    await invalidateCache('vendors:/api/vendors*');
+
 
     // Link the user to this newly created vendor
     owner.vendor = createdVendor._id;
@@ -108,6 +112,11 @@ const updateVendor = asyncHandler(async (req, res) => {
 
 
     const updatedVendor = await vendor.save();
+    await invalidateCache([
+        `vendors:/api/vendors/${req.params.id}`, // Specific product by ID
+        'vendors:/api/vendors*'                  // All product list views
+    ]);
+
     res.json(updatedVendor);
 });
 
@@ -133,6 +142,11 @@ const deleteVendor = asyncHandler(async (req, res) => {
     // await Product.deleteMany({ vendor: vendor._id });
 
     await Vendor.deleteOne({ _id: vendor._id });
+    await invalidateCache([
+        `vendors:/api/vendors/${req.params.id}`, // Specific product by ID
+        'vendors:/api/vendors*'                  // All product list views
+    ]);
+
     res.json({ message: 'Vendor removed' });
 });
 

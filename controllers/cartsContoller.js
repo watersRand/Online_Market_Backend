@@ -3,6 +3,8 @@ const Cart = require('../models/carts');
 const Product = require('../models/Product'); // Assuming you have a Product model
 const asyncHandler = require('express-async-handler'); // For error handling
 const session = require('express-session');
+const { invalidateCache } = require('../controllers/cacheController')
+
 
 
 // Helper to get or create a cart based on user or session
@@ -24,6 +26,10 @@ const getOrCreateCart = async (req) => {
         cart = new Cart(newCartData);
         try {
             await cart.save();
+            await invalidateCache([
+                `carts:/api/carts/${req.params.id}`, // Specific product by ID
+                'carts:/api/carts*'                  // All product list views
+            ]);
         } catch (error) {
             // Handle potential race condition if two requests try to create the same cart concurrently
             if (error.code === 11000) { // Duplicate key error (e.g., unique userId/sessionId constraint)
@@ -99,6 +105,10 @@ exports.addItemToCart = asyncHandler(async (req, res) => {
     }
 
     await cart.save(); // This will trigger pre-save hook for totalPrice
+    await invalidateCache([
+        `carts:/api/carts/${req.params.id}`, // Specific product by ID
+        'carts:/api/carts*'                  // All product list views
+    ]);
     res.status(200).json({ success: true, data: cart, sessionId: req.sessionId, user: req.user }); // Send session ID if newly generated
 });
 
@@ -139,6 +149,10 @@ exports.updateCartItemQuantity = asyncHandler(async (req, res) => {
     }
 
     await cart.save();
+    await invalidateCache([
+        `carts:/api/carts/${req.params.id}`, // Specific product by ID
+        'carts:/api/carts*'                  // All product list views
+    ]);
     res.status(200).json({ success: true, data: cart });
 });
 
@@ -158,7 +172,11 @@ exports.removeCartItem = asyncHandler(async (req, res) => {
         throw new Error('Item not found in cart');
     }
 
-    await cart.save();
+    await cart.save()
+    await invalidateCache([
+        `carts:/api/carts/${req.params.id}`, // Specific product by ID
+        'carts:/api/carts*'                  // All product list views
+    ]);
     res.status(200).json({ success: true, data: cart });
 });
 
@@ -169,5 +187,9 @@ exports.clearCart = asyncHandler(async (req, res) => {
     const cart = await getOrCreateCart(req);
     cart.items = [];
     await cart.save();
+    await invalidateCache([
+        `carts:/api/carts/${req.params.id}`, // Specific product by ID
+        'carts:/api/carts*'                  // All product list views
+    ]);
     res.status(200).json({ success: true, data: cart });
 });

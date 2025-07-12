@@ -4,6 +4,8 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const asyncHandler = require('express-async-handler');
+const { invalidateCache } = require('../controllers/cacheController')
+
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -30,6 +32,7 @@ const registerUser = asyncHandler(async (req, res) => {
         roles,
         isDeliveryPerson
     });
+    await invalidateCache('auth:/api/auth*');
 
     if (user) {
         res.status(201).json({
@@ -84,6 +87,10 @@ const getUserProfile = asyncHandler(async (req, res) => {
 // Get delete profile
 const deleteUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findByIdAndDelete(req.user);
+    await invalidateCache([
+        `auth:/api/auth/${req.params.id}`, // Specific product by ID
+        'auth:/api/auth*'                  // All product list views
+    ]);
 
     if (user) {
         res.json("Sucess");
@@ -113,6 +120,11 @@ const updateUserById = (async (req, res) => {
 
 
     const updatedUser = await user.save(); // .save() will run pre-save hooks (like updatedAt)
+    await invalidateCache([
+        `auth:/api/auth/${req.params.id}`, // Specific product by ID
+        'auth:/api/auth*'                  // All product list views
+    ]);
+
 
     res.status(200).json({
         success: true,

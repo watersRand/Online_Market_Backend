@@ -1,20 +1,29 @@
-const Redis = require('ioredis');
+const redis = require('ioredis');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Use a distinct name for the client that will be used for Node.js internal pub/sub logic,
-// especially if socket.io-redis creates its own connections.
-// For socket.io-redis adapter, it's often better to just pass the host/port
-// or let it create its own ioredis instances.
-const redisPubSubClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
-redisPubSubClient.on('connect', () => {
-    console.log('Connected to Redis for Pub/Sub!');
+// Create a Redis client instance
+const client = redis.createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379' // Use env var for URL
 });
 
-redisPubSubClient.on('error', (err) => {
-    console.error('Redis Pub/Sub connection error:', err);
+client.on('connect', () => {
+    console.log('Redis: Connection initiated...'); // This fires when it starts connecting
 });
 
-module.exports = redisPubSubClient;
+client.on('ready', () => {
+    console.log('Redis: Client is ready to use! ✅'); // This fires when connection is fully established
+});
+
+client.on('error', (err) => {
+    console.error('Redis: Client Error -', err);
+    // Important: Handle Redis connection errors gracefully.
+    // For production, consider robust logging and potential application-level alerts.
+});
+
+// IMPORTANT: Do NOT call client.connect() here.
+// It will be called once in server.js.
+
+module.exports = client; // Export the client instance

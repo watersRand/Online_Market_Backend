@@ -3,6 +3,8 @@ const Complaint = require('../models/complaints');
 const User = require('../models/User');
 const Order = require('../models/carts'); // For validating order if provided
 const Vendor = require('../models/vendor'); // For validating vendor if provided
+const { invalidateCache } = require('../controllers/cacheController')
+
 
 // @desc    Create a new complaint
 // @route   POST /api/complaints
@@ -41,6 +43,8 @@ const createComplaint = asyncHandler(async (req, res) => {
     });
 
     const createdComplaint = await complaint.save();
+    await invalidateCache('complaints:/api/complaints*');
+
     res.status(201).json(createdComplaint);
 });
 
@@ -161,6 +165,11 @@ const updateComplaint = asyncHandler(async (req, res) => {
     if (response) complaint.response = response;
 
     const updatedComplaint = await complaint.save();
+    await invalidateCache([
+        `complaints:/api/complaints/${req.params.id}`, // Specific product by ID
+        'complaints:/api/complaints*'                  // All product list views
+    ]);
+
     res.json(updatedComplaint);
 });
 
