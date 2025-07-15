@@ -1,0 +1,36 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">
+    <%= typeof service !=='undefined' ? 'Edit Service' : 'Register New Service' %>
+</h1>
+
+<div class="bg-white p-8 card max-w-2xl mx-auto">
+    <form action="<%= typeof service !== 'undefined' ? '/services/' + service._id + '?_method=PUT' : '/services' %>"
+        method="POST">
+        <div class="mb-4">
+            <label for="name" class="block text-gray-700 font-medium mb-2">Service Name</label>
+            <input type="text" id="name" name="name" class="form-input"
+                value="<%= typeof service !== 'undefined' ? service.name : '' %>" required>
+        </div>
+
+        <div class="mb-4">
+            <label for="description" class="block text-gray-700 font-medium mb-2">Description</label>
+            <textarea id="description" name="description" rows="5" class="form-input"
+                required><%= typeof service !== 'undefined' ? service.description : '' %></textarea>
+        </div>
+
+        <div class="mb-4">
+            <label for="price" class="block text-gray-700 font-medium mb-2">Price</label>
+            <input type="number" id="price" name="price" class="form-input" step="0.01"
+                value="<%= typeof service !== 'undefined' ? service.price : '' %>" required>
+        </div>
+
+        <div class="mb-4">
+            <label for="category" class="block text-gray-700 font-medium mb-2">Category</label>
+            <input type="text" id="category" name="category" class="form-input"
+                value="<%= typeof service !== 'undefined' ? service.category : '' %>" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full py-3 text-lg">
+            <%= typeof service !=='undefined' ? 'Update Service' : 'Register Service' %>
+        </button>
+    </form>
+</div>

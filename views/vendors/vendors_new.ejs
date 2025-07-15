@@ -1,0 +1,41 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">
+    <%= typeof vendor !=='undefined' ? 'Edit Vendor' : 'Create New Vendor' %>
+</h1>
+
+<div class="bg-white p-8 card max-w-2xl mx-auto">
+    <form action="<%= typeof vendor !== 'undefined' ? '/vendors/' + vendor._id + '?_method=PUT' : '/vendors' %>"
+        method="POST">
+        <div class="mb-4">
+            <label for="name" class="block text-gray-700 font-medium mb-2">Vendor Name</label>
+            <input type="text" id="name" name="name" class="form-input"
+                value="<%= typeof vendor !== 'undefined' ? vendor.name : '' %>" required>
+        </div>
+
+        <div class="mb-4">
+            <label for="description" class="block text-gray-700 font-medium mb-2">Description</label>
+            <textarea id="description" name="description" rows="5"
+                class="form-input"><%= typeof vendor !== 'undefined' ? vendor.description : '' %></textarea>
+        </div>
+
+        <div class="mb-4">
+            <label for="ownerId" class="block text-gray-700 font-medium mb-2">Owner (User)</label>
+            <select id="ownerId" name="ownerId" class="form-input" required>
+                <option value="">Select an Owner User</option>
+                <% if (typeof users !=='undefined' && users.length> 0) { %>
+                    <% users.forEach(userOption=> { %>
+                        <option value="<%= userOption._id %>" <%=(typeof vendor !=='undefined' && vendor.owner &&
+                            vendor.owner.toString()===userOption._id.toString()) || (typeof selectedOwnerId
+                            !=='undefined' && selectedOwnerId===userOption._id.toString()) ? 'selected' : '' %>>
+                            <%= userOption.name %> (<%= userOption.email %>)
+                        </option>
+                        <% }); %>
+                            <% } %>
+            </select>
+            <p class="text-sm text-gray-500 mt-1">Only users not already linked to another vendor are shown.</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full py-3 text-lg">
+            <%= typeof vendor !=='undefined' ? 'Update Vendor' : 'Create Vendor' %>
+        </button>
+    </form>
+</div>

@@ -1,0 +1,63 @@
+<% if (typeof userProfile !=='undefined' && userProfile) { %>
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">My Profile</h1>
+
+    <div class="bg-white p-8 card max-w-2xl mx-auto mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Account Details</h2>
+        <ul class="list-disc list-inside text-gray-700 space-y-2 mb-6">
+            <li>Name: <span class="font-medium">
+                    <%= userProfile.name %>
+                </span></li>
+            <li>Email: <span class="font-medium">
+                    <%= userProfile.email %>
+                </span></li>
+            <li>Phone Number: <span class="font-medium">
+                    <%= userProfile.phoneNumber || 'N/A' %>
+                </span></li>
+            <li>Roles: <span class="font-medium">
+                    <%= userProfile.roles && userProfile.roles.length> 0 ? userProfile.roles.join(', ') : 'Customer' %>
+                </span></li>
+            <% if (userProfile.isDeliveryPerson) { %>
+                <li>Delivery Person: <span class="font-medium text-green-600">Yes</span></li>
+                <% } %>
+                    <% if (userProfile.vendor) { %>
+                        <li>Associated Vendor: <span class="font-medium">
+                                <%= userProfile.vendor.name || userProfile.vendor %>
+                            </span></li>
+                        <% } %>
+        </ul>
+
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Update Profile</h2>
+        <form action="/auth/profile?_method=PUT" method="POST">
+            <div class="mb-4">
+                <label for="name" class="block text-gray-700 font-medium mb-2">Name</label>
+                <input type="text" id="name" name="name" class="form-input" value="<%= userProfile.name %>" required>
+            </div>
+            <div class="mb-4">
+                <label for="email" class="block text-gray-700 font-medium mb-2">Email</label>
+                <input type="email" id="email" name="email" class="form-input" value="<%= userProfile.email %>"
+                    required>
+            </div>
+            <div class="mb-6">
+                <label for="phoneNumber" class="block text-gray-700 font-medium mb-2">Phone Number</label>
+                <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input"
+                    value="<%= userProfile.phoneNumber || '' %>">
+            </div>
+            <button type="submit" class="btn btn-primary w-full py-2 text-lg">Update Profile</button>
+        </form>
+
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <h2 class="text-2xl font-semibold text-red-600 mb-4">Danger Zone</h2>
+            <form action="/auth/profile?_method=DELETE" method="POST"
+                onsubmit="return confirm('Are you absolutely sure you want to delete your account? This action cannot be undone.');">
+                <button type="submit" class="btn bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">Delete My
+                    Account</button>
+            </form>
+        </div>
+    </div>
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <h1 class="text-3xl font-bold mb-4">Profile Not Found</h1>
+            <p>Could not load your user profile. Please log in again.</p>
+            <a href="/auth/login" class="btn btn-primary mt-6 inline-block">Login</a>
+        </div>
+        <% } %>

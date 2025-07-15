@@ -1,0 +1,52 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">Update User Profile</h1>
+
+<div class="bg-white p-8 card max-w-2xl mx-auto">
+    <form action="/admin/users/<%= userToEdit._id %>?_method=PUT" method="POST">
+        <div class="mb-4">
+            <label for="name" class="block text-gray-700 font-medium mb-2">Name</label>
+            <input type="text" id="name" name="name" class="form-input" value="<%= userToEdit.name %>" required>
+        </div>
+        <div class="mb-4">
+            <label for="email" class="block text-gray-700 font-medium mb-2">Email</label>
+            <input type="email" id="email" name="email" class="form-input" value="<%= userToEdit.email %>" required>
+        </div>
+        <div class="mb-6">
+            <label for="phoneNumber" class="block text-gray-700 font-medium mb-2">Phone Number</label>
+            <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input"
+                value="<%= userToEdit.phoneNumber || '' %>">
+        </div>
+
+        <% if (typeof loggedInUser !=='undefined' && loggedInUser.roles.includes('Admin')) { %>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4 mt-8">Admin Controls</h2>
+            <div class="mb-4">
+                <label for="roles" class="block text-gray-700 font-medium mb-2">Roles (comma-separated)</label>
+                <input type="text" id="roles" name="roles" class="form-input" value="<%= userToEdit.roles.join(', ') %>"
+                    placeholder="e.g., customer, admin, vendor">
+                <p class="text-sm text-gray-500 mt-1">Separate multiple roles with commas (e.g., customer, vendor).</p>
+            </div>
+            <div class="mb-4 flex items-center">
+                <input type="checkbox" id="isDeliveryPerson" name="isDeliveryPerson"
+                    class="h-4 w-4 text-indigo-600 border-gray-300 rounded" <%=userToEdit.isDeliveryPerson ? 'checked'
+                    : '' %>>
+                <label for="isDeliveryPerson" class="ml-2 block text-gray-700 font-medium">Is Delivery Person</label>
+            </div>
+            <div class="mb-6">
+                <label for="vendor" class="block text-gray-700 font-medium mb-2">Assign Vendor (Optional)</label>
+                <select id="vendor" name="vendor" class="form-input">
+                    <option value="">-- No Vendor --</option>
+                    <% if (typeof vendors !=='undefined' && vendors.length> 0) { %>
+                        <% vendors.forEach(vendorOption=> { %>
+                            <option value="<%= vendorOption._id %>" <%=(userToEdit.vendor &&
+                                userToEdit.vendor.toString()===vendorOption._id.toString()) ? 'selected' : '' %>>
+                                <%= vendorOption.name %>
+                            </option>
+                            <% }); %>
+                                <% } %>
+                </select>
+                <p class="text-sm text-gray-500 mt-1">Assign this user as the owner of a vendor.</p>
+            </div>
+            <% } %>
+
+                <button type="submit" class="btn btn-primary w-full py-3 text-lg">Update User</button>
+    </form>
+</div>

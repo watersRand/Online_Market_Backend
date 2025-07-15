@@ -20,7 +20,8 @@ const client = async () => {
 
 }
 async function setCache(key, value, expirySeconds = 3600) {
-    await client.setex(key, expirySeconds, JSON.stringify(value));
+    // In node-redis v4.x+, use SET with EX option
+    await client.set(key, JSON.stringify(value), { EX: expirySeconds });
 }
 
 async function getCache(key) {

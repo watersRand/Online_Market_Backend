@@ -1,0 +1,47 @@
+<% if (typeof vendor !=='undefined' && vendor) { %>
+    <div class="bg-white p-8 card flex flex-col md:flex-row gap-8">
+        <div class="md:w-1/2">
+            <!-- Placeholder for vendor logo/image -->
+            <img src="<%= vendor.imageUrl || 'https://placehold.co/400x400/cccccc/333333?text=Vendor+Logo' %>"
+                alt="<%= vendor.name %> Logo" class="w-full h-96 object-cover rounded-lg shadow-md">
+        </div>
+        <div class="md:w-1/2">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                <%= vendor.name %>
+            </h1>
+            <p class="text-gray-700 text-lg mb-6 leading-relaxed">
+                <%= vendor.description || 'No description provided.' %>
+            </p>
+
+            <div class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Vendor Details</h2>
+                <ul class="list-disc list-inside text-gray-700 space-y-2">
+                    <li>Owner: <%= vendor.owner ? vendor.owner.name : 'N/A' %>
+                    </li>
+                    <li>Owner Email: <%= vendor.owner ? vendor.owner.email : 'N/A' %>
+                    </li>
+                    <li>Created At: <%= new Date(vendor.createdAt).toLocaleDateString() %>
+                    </li>
+                    <% if (vendor.updatedAt) { %>
+                        <li>Last Updated: <%= new Date(vendor.updatedAt).toLocaleDateString() %>
+                        </li>
+                        <% } %>
+                </ul>
+            </div>
+
+            <div class="mt-8">
+                <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
+                    <a href="/vendors/edit/<%= vendor._id %>" class="btn btn-primary px-6 py-3 text-lg">Edit Vendor</a>
+                    <% } %>
+            </div>
+        </div>
+    </div>
+    <!-- Hidden input to get vendor ID for Socket.IO room joining (e.g., for vendor's own dashboard) -->
+    <input type="hidden" id="currentVendorId" value="<%= vendor._id %>">
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <h1 class="text-3xl font-bold mb-4">Vendor Not Found</h1>
+            <p>The vendor you are looking for does not exist.</p>
+            <a href="/vendors" class="btn btn-primary mt-6 inline-block">Back to Vendors</a>
+        </div>
+        <% } %>

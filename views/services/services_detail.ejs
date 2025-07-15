@@ -1,0 +1,48 @@
+<% if (typeof service !=='undefined' && service) { %>
+    <div class="bg-white p-8 card flex flex-col md:flex-row gap-8">
+        <div class="md:w-1/2">
+            <!-- You might add an image for the service here if your model supports it -->
+            <img src="<%= service.imageUrl || 'https://placehold.co/400x400/cccccc/333333?text=Service' %>"
+                alt="<%= service.name %>" class="w-full h-96 object-cover rounded-lg shadow-md">
+        </div>
+        <div class="md:w-1/2">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                <%= service.name %>
+            </h1>
+            <p class="text-gray-700 text-lg mb-6 leading-relaxed">
+                <%= service.description %>
+            </p>
+            <p class="text-5xl font-extrabold text-indigo-600 mb-6">$<%= service.price.toFixed(2) %>
+            </p>
+
+            <div class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Service Details</h2>
+                <ul class="list-disc list-inside text-gray-700 space-y-2">
+                    <li>Category: <%= service.category || 'N/A' %>
+                    </li>
+                    <li>Created At: <%= new Date(service.createdAt).toLocaleDateString() %>
+                    </li>
+                    <% if (service.updatedAt) { %>
+                        <li>Last Updated: <%= new Date(service.updatedAt).toLocaleDateString() %>
+                        </li>
+                        <% } %>
+                </ul>
+            </div>
+
+            <div class="mt-8">
+                <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
+                    <a href="/services/edit/<%= service._id %>" class="btn btn-primary px-6 py-3 text-lg">Edit
+                        Service</a>
+                    <% } %>
+            </div>
+        </div>
+    </div>
+    <!-- Hidden input to get service ID for Socket.IO room joining -->
+    <input type="hidden" id="currentServiceId" value="<%= service._id %>">
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <h1 class="text-3xl font-bold mb-4">Service Not Found</h1>
+            <p>The service you are looking for does not exist.</p>
+            <a href="/services" class="btn btn-primary mt-6 inline-block">Back to Services</a>
+        </div>
+        <% } %>

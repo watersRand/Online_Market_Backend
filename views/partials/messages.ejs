@@ -1,0 +1,301 @@
+<!-- Container for server-side flash messages -->
+<div id="flash-messages">
+    <% if (typeof message !=='undefined' && message) { %>
+        <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
+            <%= message %>
+        </div>
+        <% } %>
+            <% if (typeof error !=='undefined' && error) { %>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4"
+                    role="alert">
+                    <%= error %>
+                </div>
+                <% } %>
+</div>
+
+<!-- Container for Socket.IO real-time messages -->
+<div id="socket-messages" class="mt-4">
+    <!-- Real-time messages will be appended here by JavaScript -->
+</div>
+
+<!-- Socket.IO Client-side Script -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Socket.IO client
+        const socket = io(); // Connects to the server where Socket.IO is running
+
+        const socketMessagesDiv = document.getElementById('socket-messages');
+
+        // Function to display a new message
+        function displaySocketMessage(type, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('px-4', 'py-3', 'rounded-lg', 'relative', 'mb-2');
+
+            // Apply Tailwind classes based on message type
+            if (type === 'success') {
+                messageDiv.classList.add('bg-green-100', 'border', 'border-green-400', 'text-green-700');
+            } else if (type === 'error') {
+                messageDiv.classList.add('bg-red-100', 'border', 'border-red-400', 'text-red-700');
+            } else if (type === 'warning') {
+                messageDiv.classList.add('bg-yellow-100', 'border', 'border-yellow-400', 'text-yellow-700');
+            } else { // Default to info
+                messageDiv.classList.add('bg-blue-100', 'border', 'border-blue-400', 'text-blue-700');
+            }
+
+            messageDiv.textContent = content;
+
+            // Optional: Add a close button
+            const closeButton = document.createElement('span');
+            closeButton.textContent = 'x';
+            closeButton.classList.add('absolute', 'top-0', 'right-0', 'px-2', 'py-1', 'cursor-pointer', 'font-bold', 'text-lg');
+            closeButton.onclick = () => messageDiv.remove();
+            messageDiv.appendChild(closeButton);
+
+            socketMessagesDiv.appendChild(messageDiv);
+
+            // Optional: Auto-hide message after a few seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000); // Message disappears after 5 seconds
+        }
+
+        // --- GLOBAL SOCKET.IO EVENT LISTENERS ---
+
+        // General server message
+        socket.on('serverMessage', (data) => {
+            console.log('Received real-time message:', data);
+            if (data && data.type && data.content) {
+                displaySocketMessage(data.type, data.content);
+            }
+        });
+
+        // --- PRODUCT CONTROLLER EVENTS ---
+        socket.on('newProductAdded', (data) => {
+            displaySocketMessage('success', `New Product Added: "${data.name}" (ID: ${data.productId}).`);
+        });
+        socket.on('productUpdate', (data) => {
+            displaySocketMessage('info', `Product "${data.name}" updated. New Price: $${data.price.toFixed(2)}, Stock: ${data.stock}`);
+        });
+        socket.on('adminAlert', (data) => {
+            let type = 'info';
+            if (data.type === 'low_stock_critical' || data.type === 'out_of_stock') {
+                type = 'error';
+            } else if (data.type === 'low_stock') {
+                type = 'warning';
+            }
+            displaySocketMessage(type, `Admin Alert: ${data.message}`);
+        });
+        socket.on('vendorAlert', (data) => {
+            let type = 'info';
+            if (data.type === 'low_stock_critical' || data.type === 'out_of_stock') {
+                type = 'error';
+            } else if (data.type === 'low_stock') {
+                type = 'warning';
+            }
+            displaySocketMessage(type, `Vendor Alert: ${data.message}`);
+        });
+        socket.on('productOutOfStock', (data) => {
+            displaySocketMessage('error', `Product "${data.name}" is now OUT OF STOCK!`);
+        });
+        socket.on('productDeleted', (data) => {
+            displaySocketMessage('error', `Product Deleted: "${data.name}" (ID: ${data.productId}).`);
+        });
+        socket.on('productRemovedFromCatalog', (data) => {
+            displaySocketMessage('info', `Product "${data.name}" is no longer available in the catalog.`);
+        });
+
+        // --- SERVICE CONTROLLER EVENTS ---
+        socket.on('newServiceRegistered', (data) => {
+            displaySocketMessage('success', `New Service Registered: "${data.name}" (${data.category}).`);
+        });
+        socket.on('serviceDeleted', (data) => {
+            displaySocketMessage('error', `Service Deleted: "${data.name}" (ID: ${data.serviceId}).`);
+        });
+        socket.on('serviceRemovedFromCatalog', (data) => {
+            displaySocketMessage('info', `Service "${data.name}" is no longer available.`);
+        });
+        socket.on('serviceUpdated', (data) => {
+            displaySocketMessage('info', `Service "${data.name}" updated. New Price: $${data.price.toFixed(2)}.`);
+        });
+        socket.on('adminServiceUpdate', (data) => {
+            displaySocketMessage('info', `Admin: Service "${data.name}" (ID: ${data.serviceId}) has been updated.`);
+        });
+
+        // --- VENDOR CONTROLLER EVENTS ---
+        socket.on('newVendorCreated', (data) => {
+            displaySocketMessage('success', `New Vendor Created: "${data.name}" (Owner: ${data.ownerName}).`);
+        });
+        socket.on('vendorUpdated', (data) => {
+            displaySocketMessage('info', `Vendor "${data.name}" updated.`);
+        });
+        socket.on('vendorDeleted', (data) => {
+            displaySocketMessage('error', `Vendor Deleted: "${data.name}" (ID: ${data.vendorId}).`);
+        });
+        socket.on('vendorAssigned', (data) => {
+            displaySocketMessage('success', `You are now the owner of "${data.name}"!`);
+        });
+        socket.on('vendorUnassigned', (data) => {
+            displaySocketMessage('warning', `You are no longer the owner of "${data.name}".`);
+        });
+        socket.on('vendorDeletedFromAccount', (data) => {
+            displaySocketMessage('error', `The vendor "${data.name}" you owned has been deleted.`);
+        });
+        socket.on('vendorAccountDeleted', (data) => {
+            displaySocketMessage('error', `Your vendor account "${data.name}" has been deleted.`);
+            setTimeout(() => { window.location.href = '/auth/login'; }, 2000); // Redirect on account deletion
+        });
+        socket.on('vendorDetailsUpdated', (data) => {
+            displaySocketMessage('info', `Your vendor details for "${data.name}" have been updated by an admin.`);
+        });
+
+        // --- DELIVERY CONTROLLER EVENTS ---
+        socket.on('newDeliveryAssignment', (data) => {
+            displaySocketMessage('info', `New Delivery Assigned: Order #${data.orderId} to ${data.customerInfo.address.street}, ${data.customerInfo.address.city}.`);
+        });
+        socket.on('orderDeliveryStatusUpdate', (data) => {
+            displaySocketMessage('info', `Your order #${data.orderId} is now **${data.status}**. ${data.currentLocation ? 'Current Location: ' + data.currentLocation.latitude + ', ' + data.currentLocation.longitude : ''}`);
+        });
+        socket.on('newDeliveryAssignmentAdmin', (data) => {
+            displaySocketMessage('success', `Admin: Order #${data.orderId} assigned to ${data.deliveryPersonName}. Status: ${data.status}`);
+        });
+        socket.on('orderStatusUpdate', (data) => { // This can come from delivery updates affecting order status
+            displaySocketMessage('info', `Order #${data.orderId} status changed to: **${data.newStatus}**`);
+        });
+        socket.on('deliveryUpdateForOrder', (data) => {
+            displaySocketMessage('info', `Delivery for order #${data.orderId} is now ${data.status}.`);
+        });
+        socket.on('deliveryStatusChangedForYou', (data) => {
+            displaySocketMessage('info', `Your delivery #${data.deliveryId} status updated to: ${data.newStatus}`);
+        });
+        socket.on('deliveryStatusChangedAdmin', (data) => {
+            displaySocketMessage('info', `Admin: Delivery #${data.deliveryId} for Order #${data.orderId} changed from ${data.oldStatus} to ${data.newStatus}.`);
+        });
+
+        // --- COMPLAINT CONTROLLER EVENTS ---
+        socket.on('newComplaint', (data) => {
+            displaySocketMessage('info', `New Complaint Filed: "${data.subject}" by ${data.userName}.`);
+        });
+        socket.on('newVendorComplaint', (data) => {
+            displaySocketMessage('warning', `New Complaint for Your Vendor: "${data.subject}" by ${data.userName}.`);
+        });
+        socket.on('complaintConfirmation', (data) => {
+            displaySocketMessage('success', `Your complaint ("${data.subject}") has been submitted. Status: ${data.status}.`);
+        });
+        socket.on('complaintUpdated', (data) => {
+            displaySocketMessage('info', `Complaint #${data.complaintId} updated. Status: ${data.oldStatus} -> ${data.newStatus}.`);
+        });
+        socket.on('vendorComplaintUpdated', (data) => {
+            displaySocketMessage('info', `Complaint for your vendor (${data.subject}) updated. Status: ${data.oldStatus} -> ${data.newStatus}.`);
+        });
+        socket.on('yourComplaintUpdated', (data) => {
+            displaySocketMessage('info', `Your complaint ("${data.subject}") status changed to: **${data.newStatus}**. ${data.response ? 'Response: ' + data.response : ''}`);
+        });
+        socket.on('complaintAssignedToYou', (data) => {
+            displaySocketMessage('success', `A new complaint ("${data.subject}") has been assigned to you.`);
+        });
+
+        // --- CART CONTROLLER EVENTS ---
+        socket.on('cartUpdated', (data) => {
+            displaySocketMessage('success', `Your cart has been updated! Total items: ${data.items.length}, Total price: $${data.totalPrice.toFixed(2)}.`);
+            // Optional: Trigger UI update for cart count in header or cart page if active
+            // if (window.location.pathname === '/cart') { window.location.reload(); } // Simple reload
+        });
+        socket.on('adminCartActivity', (data) => {
+            displaySocketMessage('info', `Admin: Cart activity detected for user ID: ${data.userId} (Action: ${data.action}).`);
+        });
+
+        // --- AUTH CONTROLLER EVENTS ---
+        socket.on('newUserRegistered', (data) => {
+            displaySocketMessage('success', `New User Registered: ${data.name} (${data.email}).`);
+        });
+        socket.on('welcomeMessage', (data) => {
+            displaySocketMessage('success', data.message);
+        });
+        socket.on('userDeleted', (data) => {
+            displaySocketMessage('error', `User Deleted: ${data.name} (${data.email}).`);
+        });
+        socket.on('accountDeleted', (data) => {
+            displaySocketMessage('error', data.message);
+            setTimeout(() => { window.location.href = '/auth/login'; }, 2000); // Redirect on account deletion
+        });
+        socket.on('userUpdated', (data) => {
+            displaySocketMessage('info', `User Profile Updated: ${data.name} (${data.email}).`);
+        });
+        socket.on('profileUpdated', (data) => {
+            displaySocketMessage('success', data.message);
+            // Optional: Reload profile page to reflect changes
+            // setTimeout(() => { window.location.reload(); }, 1000);
+        });
+        socket.on('loggedOut', (data) => {
+            displaySocketMessage('info', data.message);
+            setTimeout(() => { window.location.href = '/auth/login'; }, 1000); // Redirect on logout
+        });
+
+
+        // --- CLIENT-SIDE ROOM JOINING LOGIC ---
+        // These `socket.emit` calls should be conditional based on the user's role and the current page.
+        // The `user` object is expected to be passed from the server to the EJS template.
+
+        <% if (typeof user !== 'undefined' && user && user.roles) { %>
+            <% if (user.roles.includes('Admin')) { %>
+                socket.emit('joinAdminDashboard');
+                console.log('Client joined admin_dashboard room.');
+            <% } %>
+            <% if (user.roles.includes('vendor') && user.vendor) { %>
+                socket.emit('joinVendorDashboard', '<%= user.vendor.toString() %>');
+                console.log('Client joined vendor_dashboard room for vendor: <%= user.vendor.toString() %>.');
+            <% } %>
+            <% if (user.isDeliveryPerson) { %>
+                socket.emit('joinDeliveryPersonRoom', '<%= user._id.toString() %>');
+                console.log('Client joined delivery_person_room for user: <%= user._id.toString() %>.');
+            <% } %>
+                // All authenticated users should join their specific user room for personal notifications
+                socket.emit('joinUserRoom', '<%= user._id.toString() %>');
+            console.log('Client joined user_room for user: <%= user._id.toString() %>.');
+        <% } %>
+
+        // Join specific page rooms if on that page
+        const currentProductIdElement = document.getElementById('currentProductId');
+        if (currentProductIdElement) {
+            const productId = currentProductIdElement.value;
+            socket.emit('joinProductPage', productId);
+            console.log('Client joined product_page room for product: ' + productId);
+        }
+
+        const currentServiceIdElement = document.getElementById('currentServiceId');
+        if (currentServiceIdElement) {
+            const serviceId = currentServiceIdElement.value;
+            socket.emit('joinServicePage', serviceId);
+            console.log('Client joined service_page room for service: ' + serviceId);
+        }
+
+        const currentVendorIdElement = document.getElementById('currentVendorId');
+        if (currentVendorIdElement) {
+            const vendorId = currentVendorIdElement.value;
+            socket.emit('joinVendorPage', vendorId);
+            console.log('Client joined vendor_page room for vendor: ' + vendorId);
+        }
+
+        const currentOrderIdElement = document.getElementById('currentOrderId');
+        if (currentOrderIdElement) {
+            const orderId = currentOrderIdElement.value;
+            socket.emit('joinOrderPage', orderId);
+            console.log('Client joined order_page room for order: ' + orderId);
+        }
+
+        const currentDeliveryIdElement = document.getElementById('currentDeliveryId');
+        if (currentDeliveryIdElement) {
+            const deliveryId = currentDeliveryIdElement.value;
+            socket.emit('joinDeliveryPage', deliveryId);
+            console.log('Client joined delivery_page room for delivery: ' + deliveryId);
+        }
+
+        const currentComplaintIdElement = document.getElementById('currentComplaintId');
+        if (currentComplaintIdElement) {
+            const complaintId = currentComplaintIdElement.value;
+            socket.emit('joinComplaintPage', complaintId);
+            console.log('Client joined complaint_page room for complaint: ' + complaintId);
+        }
+    });
+</script>

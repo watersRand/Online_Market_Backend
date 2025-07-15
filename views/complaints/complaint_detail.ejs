@@ -1,0 +1,117 @@
+<% if (typeof complaint !=='undefined' && complaint) { %>
+    <div class="bg-white p-8 card">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Complaint #<%= complaint._id %>: <%= complaint.subject %>
+        </h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Complaint Details</h2>
+                <ul class="list-disc list-inside text-gray-700 space-y-2">
+                    <li>Status:
+                        <span class="status-badge status-<%= complaint.status.toLowerCase().replace(' ', '-') %>">
+                            <%= complaint.status %>
+                        </span>
+                    </li>
+                    <li>Filed By: <%= complaint.user ? complaint.user.name : 'N/A' %> (<%= complaint.user ?
+                                complaint.user.email : 'N/A' %>)</li>
+                    <li>Filed On: <%= new Date(complaint.createdAt).toLocaleDateString() %>
+                    </li>
+                    <% if (complaint.updatedAt) { %>
+                        <li>Last Updated: <%= new Date(complaint.updatedAt).toLocaleDateString() %>
+                        </li>
+                        <% } %>
+                            <% if (complaint.vendor) { %>
+                                <li>Related Vendor: <%= complaint.vendor.name %>
+                                </li>
+                                <% } %>
+                                    <% if (complaint.order) { %>
+                                        <li>Related Order: <a href="/orders/<%= complaint.order._id %>"
+                                                class="text-indigo-600 hover:underline">#<%= complaint.order._id %></a>
+                                            (Total: $<%= complaint.order.totalAmount.toFixed(2) %>, Status: <%=
+                                                    complaint.order.status %>)</li>
+                                        <% } %>
+                                            <li>Assigned To: <%= complaint.assignedTo ? complaint.assignedTo.name
+                                                    : 'Not Assigned' %>
+                                            </li>
+                </ul>
+                <p class="text-gray-700 text-lg mt-6 leading-relaxed">
+                    <span class="font-semibold">Description:</span><br>
+                    <%= complaint.description %>
+                </p>
+                <% if (complaint.response) { %>
+                    <p class="text-gray-700 text-lg mt-6 leading-relaxed border-t pt-4">
+                        <span class="font-semibold">Response:</span><br>
+                        <%= complaint.response %>
+                    </p>
+                    <% } %>
+            </div>
+        </div>
+
+        <% const isOwner=typeof user !=='undefined' && complaint.user &&
+            complaint.user._id.toString()===user._id.toString(); const isVendorAdminForComplaint=typeof user
+            !=='undefined' && user.roles.includes('vendor') && complaint.vendor && user.vendor &&
+            complaint.vendor._id.toString()===user.vendor._id.toString(); const isAdmin=typeof user !=='undefined' &&
+            user.roles.includes('Admin'); const canUpdateComplaint=(isAdmin || isVendorAdminForComplaint); const
+            canAssignComplaint=isAdmin; // Only Super Admin can assign %>
+
+            <% if (canUpdateComplaint) { %>
+                <div class="bg-gray-50 p-6 card mt-8">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Update Complaint</h2>
+                    <form action="/complaints/<%= complaint._id %>?_method=PUT" method="POST">
+                        <div class="mb-4">
+                            <label for="status" class="block text-gray-700 font-medium mb-2">Status</label>
+                            <select id="status" name="status" class="form-input" required>
+                                <option value="open" <%=complaint.status==='open' ? 'selected' : '' %>>Open</option>
+                                <option value="in-progress" <%=complaint.status==='in-progress' ? 'selected' : '' %>>In
+                                    Progress</option>
+                                <option value="resolved" <%=complaint.status==='resolved' ? 'selected' : '' %>>Resolved
+                                </option>
+                                <option value="closed" <%=complaint.status==='closed' ? 'selected' : '' %>>Closed
+                                </option>
+                                <!-- Add more statuses as per your model -->
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="response" class="block text-gray-700 font-medium mb-2">Response
+                                (Optional)</label>
+                            <textarea id="response" name="response" rows="5" class="form-input"
+                                placeholder="Add a response or update..."><%= typeof complaint.response !== 'undefined' ? complaint.response : '' %></textarea>
+                        </div>
+
+                        <% if (canAssignComplaint) { %>
+                            <div class="mb-4">
+                                <label for="assignedTo" class="block text-gray-700 font-medium mb-2">Assign To (Admin
+                                    only)</label>
+                                <select id="assignedTo" name="assignedTo" class="form-input">
+                                    <option value="">-- Select User --</option>
+                                    <% if (typeof assignedToUsers !=='undefined' && assignedToUsers.length> 0) { %>
+                                        <% assignedToUsers.forEach(assignedUser=> { %>
+                                            <option value="<%= assignedUser._id %>" <%=(complaint.assignedTo &&
+                                                complaint.assignedTo._id.toString()===assignedUser._id.toString())
+                                                ? 'selected' : '' %>>
+                                                <%= assignedUser.name %> (<%= assignedUser.email %>)
+                                            </option>
+                                            <% }); %>
+                                                <% } %>
+                                </select>
+                                <p class="text-sm text-gray-500 mt-1">Users with Admin, Support, or Delivery Person
+                                    roles.</p>
+                            </div>
+                            <% } %>
+
+                                <button type="submit" class="btn btn-primary w-full py-3 text-lg">Update
+                                    Complaint</button>
+                    </form>
+                </div>
+                <% } %>
+    </div>
+    <!-- Hidden input to get complaint ID for Socket.IO room joining -->
+    <input type="hidden" id="currentComplaintId" value="<%= complaint._id %>">
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <h1 class="text-3xl font-bold mb-4">Complaint Not Found</h1>
+            <p>The complaint you are looking for does not exist.</p>
+            <a href="/complaints" class="btn btn-primary mt-6 inline-block">Back to Complaints</a>
+        </div>
+        <% } %>

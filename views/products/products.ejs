@@ -1,0 +1,66 @@
+<% if (typeof product !=='undefined' && product) { %>
+    <div class="bg-white p-8 card flex flex-col md:flex-row gap-8">
+        <div class="md:w-1/2">
+            <img src="<%= product.image || 'https://placehold.co/400x400/cccccc/333333?text=Product' %>"
+                alt="<%= product.name %>" class="w-full h-96 object-cover rounded-lg shadow-md">
+        </div>
+        <div class="md:w-1/2">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                <%= product.name %>
+            </h1>
+            <p class="text-gray-700 text-lg mb-6 leading-relaxed">
+                <%= product.description %>
+            </p>
+            <p class="text-5xl font-extrabold text-indigo-600 mb-6">$<%= product.price.toFixed(2) %>
+            </p>
+
+            <div class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Product Details</h2>
+                <ul class="list-disc list-inside text-gray-700 space-y-2">
+                    <li>Category: <%= product.category || 'N/A' %>
+                    </li>
+                    <li>
+                        Availability:
+                        <% if (product.countInStock> 0) { %>
+                            <span class="font-semibold text-green-600">In Stock</span> (<%= product.countInStock %>
+                                items)
+                                <% } else { %>
+                                    <span class="font-semibold text-red-600">Out of Stock</span>
+                                    <% } %>
+                    </li>
+                    <li>Vendor: <%= product.vendorName || 'N/A' %>
+                    </li>
+                    <li>Added By: <%= product.userName || 'N/A' %>
+                    </li>
+                    <li>Created At: <%= new Date(product.createdAt).toLocaleDateString() %>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="mt-8 flex space-x-4">
+                <form action="/cart/add" method="POST">
+                    <input type="hidden" name="productId" value="<%= product._id %>">
+                    <label for="quantity" class="sr-only">Quantity</label>
+                    <input type="number" id="quantity" name="quantity" value="1" min="1"
+                        class="form-input w-24 text-center mr-2">
+                    <button type="submit" class="btn btn-primary px-6 py-3 text-lg" <%=product.countInStock===0
+                        ? 'disabled' : '' %>>
+                        <%= product.countInStock===0 ? 'Out of Stock' : 'Add to Cart' %>
+                    </button>
+                </form>
+
+                <% if (typeof user !=='undefined' && (user.roles.includes('Admin') || (user.roles.includes('vendor') &&
+                    product.vendor && product.vendor.toString()===user.vendor.toString()))) { %>
+                    <a href="/products/edit/<%= product._id %>"
+                        class="btn btn-secondary px-6 py-3 text-lg self-start">Edit Product</a>
+                    <% } %>
+            </div>
+        </div>
+    </div>
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <h1 class="text-3xl font-bold mb-4">Product Not Found</h1>
+            <p>The product you are looking for does not exist.</p>
+            <a href="/products" class="btn btn-primary mt-6 inline-block">Back to Products</a>
+        </div>
+        <% } %>

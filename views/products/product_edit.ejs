@@ -1,0 +1,60 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">
+    <%= typeof product !=='undefined' ? 'Edit Product' : 'Create New Product' %>
+</h1>
+
+<div class="bg-white p-8 card max-w-2xl mx-auto">
+    <form action="<%= typeof product !== 'undefined' ? '/products/' + product._id + '?_method=PUT' : '/products' %>"
+        method="POST">
+        <div class="mb-4">
+            <label for="name" class="block text-gray-700 font-medium mb-2">Product Name</label>
+            <input type="text" id="name" name="name" class="form-input"
+                value="<%= typeof product !== 'undefined' ? product.name : '' %>" required>
+        </div>
+
+        <div class="mb-4">
+            <label for="price" class="block text-gray-700 font-medium mb-2">Price</label>
+            <input type="number" id="price" name="price" class="form-input" step="0.01"
+                value="<%= typeof product !== 'undefined' ? product.price : '' %>" required>
+        </div>
+
+        <div class="mb-4">
+            <label for="description" class="block text-gray-700 font-medium mb-2">Description</label>
+            <textarea id="description" name="description" rows="5" class="form-input"
+                required><%= typeof product !== 'undefined' ? product.description : '' %></textarea>
+        </div>
+
+        <div class="mb-4">
+            <label for="category" class="block text-gray-700 font-medium mb-2">Category</label>
+            <input type="text" id="category" name="category" class="form-input"
+                value="<%= typeof product !== 'undefined' ? product.category : '' %>" required>
+        </div>
+
+        <div class="mb-4">
+            <label for="countInStock" class="block text-gray-700 font-medium mb-2">Count in Stock</label>
+            <input type="number" id="countInStock" name="countInStock" class="form-input"
+                value="<%= typeof product !== 'undefined' ? product.countInStock : '' %>" required>
+        </div>
+
+        <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
+            <div class="mb-4">
+                <label for="vendorId" class="block text-gray-700 font-medium mb-2">Vendor (Super Admin only)</label>
+                <select id="vendorId" name="vendorId" class="form-input">
+                    <option value="">Select a Vendor</option>
+                    <% if (typeof vendors !=='undefined' && vendors.length> 0) { %>
+                        <% vendors.forEach(vendor=> { %>
+                            <option value="<%= vendor._id %>" <%=(typeof product !=='undefined' && product.vendor &&
+                                product.vendor.toString()===vendor._id.toString()) || (typeof selectedVendorId
+                                !=='undefined' && selectedVendorId===vendor._id.toString()) ? 'selected' : '' %>>
+                                <%= vendor.name %>
+                            </option>
+                            <% }); %>
+                                <% } %>
+                </select>
+            </div>
+            <% } %>
+
+                <button type="submit" class="btn btn-primary w-full py-3 text-lg">
+                    <%= typeof product !=='undefined' ? 'Update Product' : 'Create Product' %>
+                </button>
+    </form>
+</div>

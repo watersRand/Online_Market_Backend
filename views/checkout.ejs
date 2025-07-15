@@ -1,0 +1,99 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">Checkout</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Shipping Information -->
+    <div class="lg:col-span-2 bg-white p-8 card">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">Shipping Information</h2>
+        <form id="checkoutForm" action="/orders" method="POST">
+            <div class="mb-4">
+                <label for="fullName" class="block text-gray-700 font-medium mb-2">Full Name</label>
+                <input type="text" id="fullName" name="fullName" class="form-input"
+                    value="<%= typeof user !== 'undefined' && user.name ? user.name : '' %>" required>
+            </div>
+            <div class="mb-4">
+                <label for="email" class="block text-gray-700 font-medium mb-2">Email</label>
+                <input type="email" id="email" name="email" class="form-input"
+                    value="<%= typeof user !== 'undefined' && user.email ? user.email : '' %>" required>
+            </div>
+            <div class="mb-4">
+                <label for="phoneNumber" class="block text-gray-700 font-medium mb-2">Phone Number</label>
+                <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input"
+                    value="<%= typeof user !== 'undefined' && user.phoneNumber ? user.phoneNumber : '' %>" required>
+            </div>
+            <div class="mb-4">
+                <label for="address" class="block text-gray-700 font-medium mb-2">Address Line 1</label>
+                <input type="text" id="address" name="address" class="form-input"
+                    placeholder="Street address, P.O. box, company name, c/o" required>
+            </div>
+            <div class="mb-4">
+                <label for="address2" class="block text-gray-700 font-medium mb-2">Address Line 2 (Optional)</label>
+                <input type="text" id="address2" name="address2" class="form-input"
+                    placeholder="Apartment, suite, unit, building, floor, etc.">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="city" class="block text-gray-700 font-medium mb-2">City</label>
+                    <input type="text" id="city" name="city" class="form-input" required>
+                </div>
+                <div>
+                    <label for="state" class="block text-gray-700 font-medium mb-2">State / Province</label>
+                    <input type="text" id="state" name="state" class="form-input" required>
+                </div>
+                <div>
+                    <label for="zipCode" class="block text-gray-700 font-medium mb-2">Zip / Postal Code</label>
+                    <input type="text" id="zipCode" name="zipCode" class="form-input" required>
+                </div>
+            </div>
+            <div class="mb-6">
+                <label for="country" class="block text-gray-700 font-medium mb-2">Country</label>
+                <input type="text" id="country" name="country" class="form-input" required>
+            </div>
+
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 mt-8">Payment Method</h2>
+            <div class="space-y-4">
+                <div class="flex items-center">
+                    <input type="radio" id="paymentMethodCash" name="paymentMethod" value="Cash On Delivery"
+                        class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" checked>
+                    <label for="paymentMethodCash" class="ml-3 block text-gray-700">Cash On Delivery</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="radio" id="paymentMethodCard" name="paymentMethod" value="Credit Card"
+                        class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" disabled>
+                    <label for="paymentMethodCard" class="ml-3 block text-gray-700">Credit Card (Coming Soon)</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="radio" id="paymentMethodMpesa" name="paymentMethod" value="M-Pesa"
+                        class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" disabled>
+                    <label for="paymentMethodMpesa" class="ml-3 block text-gray-700">M-Pesa (Coming Soon)</label>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="lg:col-span-1 bg-white p-8 card h-fit sticky top-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">Order Summary</h2>
+        <% if (typeof cart !=='undefined' && cart.items && cart.items.length> 0) { %>
+            <div class="space-y-4 mb-6">
+                <% cart.items.forEach(item=> { %>
+                    <div class="flex justify-between items-center text-gray-700">
+                        <span>
+                            <%= item.name %> x <%= item.quantity %>
+                        </span>
+                        <span>$<%= (item.price * item.quantity).toFixed(2) %></span>
+                    </div>
+                    <% }); %>
+            </div>
+            <div
+                class="border-t border-gray-200 pt-4 flex justify-between items-center text-xl font-bold text-gray-800">
+                <span>Total:</span>
+                <span>$<%= typeof cart.totalPrice !=='undefined' ? cart.totalPrice.toFixed(2) : '0.00' %></span>
+            </div>
+            <button type="submit" form="checkoutForm" class="btn btn-primary w-full py-3 text-lg mt-8">Place
+                Order</button>
+            <% } else { %>
+                <p class="text-center text-gray-600">Your cart is empty. Please add items to proceed to checkout.</p>
+                <a href="/products" class="btn btn-primary w-full py-3 text-lg mt-8">Go to Products</a>
+                <% } %>
+    </div>
+</div>

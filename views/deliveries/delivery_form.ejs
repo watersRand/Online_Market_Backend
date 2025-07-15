@@ -1,0 +1,38 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">Assign Delivery</h1>
+
+<div class="bg-white p-8 card max-w-2xl mx-auto">
+    <form action="/deliveries/assign" method="POST">
+        <div class="mb-4">
+            <label for="orderId" class="block text-gray-700 font-medium mb-2">Select Order</label>
+            <select id="orderId" name="orderId" class="form-input" required>
+                <option value="">-- Select an Order --</option>
+                <% if (typeof orders !=='undefined' && orders.length> 0) { %>
+                    <% orders.forEach(order=> { %>
+                        <option value="<%= order._id %>">
+                            Order #<%= order._id %> (Customer: <%= order.user ? order.user.name : 'N/A' %>, Total: $<%=
+                                        order.totalAmount.toFixed(2) %>)
+                        </option>
+                        <% }); %>
+                            <% } %>
+            </select>
+            <p class="text-sm text-gray-500 mt-1">Only orders ready for assignment are shown.</p>
+        </div>
+
+        <div class="mb-4">
+            <label for="deliveryPersonId" class="block text-gray-700 font-medium mb-2">Select Delivery Person</label>
+            <select id="deliveryPersonId" name="deliveryPersonId" class="form-input" required>
+                <option value="">-- Select a Delivery Person --</option>
+                <% if (typeof deliveryPersons !=='undefined' && deliveryPersons.length> 0) { %>
+                    <% deliveryPersons.forEach(person=> { %>
+                        <option value="<%= person._id %>">
+                            <%= person.name %> (<%= person.email %>)
+                        </option>
+                        <% }); %>
+                            <% } %>
+            </select>
+            <p class="text-sm text-gray-500 mt-1">Only users marked as delivery persons are shown.</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full py-3 text-lg">Assign Delivery</button>
+    </form>
+</div>

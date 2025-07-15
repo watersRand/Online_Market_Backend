@@ -1,0 +1,117 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">
+    <% if (typeof isMyComplaints !=='undefined' && isMyComplaints) { %>
+        My Complaints
+        <% } else if (typeof isVendorComplaints !=='undefined' && isVendorComplaints) { %>
+            Vendor Complaints
+            <% } else { %>
+                All Complaints
+                <% } %>
+</h1>
+
+<div class="flex justify-between items-center mb-6">
+    <% if (typeof user !=='undefined' && user) { %>
+        <a href="/complaints/file" class="btn btn-primary px-4 py-2">File New Complaint</a>
+        <% } %>
+            <div class="flex space-x-4">
+                <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
+                    <a href="/complaints"
+                        class="btn <%= typeof isMyComplaints === 'undefined' && typeof isVendorComplaints === 'undefined' ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">All
+                        Complaints</a>
+                    <% } %>
+                        <% if (typeof user !=='undefined' && user.roles.includes('vendor')) { %>
+                            <a href="/complaints/vendor"
+                                class="btn <%= typeof isVendorComplaints !== 'undefined' && isVendorComplaints ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">My
+                                Vendor Complaints</a>
+                            <% } %>
+                                <% if (typeof user !=='undefined' && user) { %>
+                                    <a href="/complaints/my-complaints"
+                                        class="btn <%= typeof isMyComplaints !== 'undefined' && isMyComplaints ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">My
+                                        Filed Complaints</a>
+                                    <% } %>
+            </div>
+</div>
+
+<% if (typeof complaints !=='undefined' && complaints.length> 0) { %>
+    <div class="bg-white p-6 card overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="table-header">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Complaint
+                        ID</th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filed By
+                    </th>
+                    <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Vendor</th>
+                        <% } %>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Order ID</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Assigned To</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Date Filed</th>
+                            <th scope="col" class="relative px-6 py-3">
+                                <span class="sr-only">Actions</span>
+                            </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <% complaints.forEach(complaint=> { %>
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <%= complaint._id %>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <%= complaint.subject %>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="status-badge status-<%= complaint.status.toLowerCase().replace(' ', '-') %>">
+                                <%= complaint.status %>
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <%= complaint.user ? complaint.user.name : 'N/A' %>
+                        </td>
+                        <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                <%= complaint.vendor ? complaint.vendor.name : 'N/A' %>
+                            </td>
+                            <% } %>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    <%= complaint.order ? complaint.order._id : 'N/A' %>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    <%= complaint.assignedTo ? complaint.assignedTo.name : 'N/A' %>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <%= new Date(complaint.createdAt).toLocaleDateString() %>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="/complaints/<%= complaint._id %>"
+                                        class="text-indigo-600 hover:text-indigo-900">View Details</a>
+                                </td>
+                    </tr>
+                    <% }); %>
+            </tbody>
+        </table>
+    </div>
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <p class="text-xl mb-4">No complaints found.</p>
+            <% if (typeof user !=='undefined' && user) { %>
+                <a href="/complaints/file" class="btn btn-primary inline-block">File Your First Complaint</a>
+                <% } %>
+        </div>
+        <% } %>
