@@ -1,9 +1,10 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const Product = require('../models/Product');
-const Order = require('../models/carts');
+const Order = require('../models/carts'); // Assuming Order model is 'carts'
 const Complaint = require('../models/complaints');
-const Delivery = require('../models/delivery'); // Assuming Delivery model exists
+const Delivery = require('../models/delivery');
+const { getIo } = require('../config/socket'); // Import getIo for Socket.IO
 
 // @desc    Get dashboard analytics for Super Admin
 // @route   GET /api/admin/dashboard/super
@@ -16,7 +17,7 @@ const getSuperAdminDashboard = asyncHandler(async (req, res) => {
     // Total Orders & Sales Volume
     const totalOrders = await Order.countDocuments({});
     const totalSalesResult = await Order.aggregate([
-        { $match: { status: { $in: ['approved', 'processing', 'shipped', 'delivered'] } } }, // Consider only paid/processed orders
+        { $match: { status: { $in: ['approved', 'processing', 'shipped', 'delivered', 'completed'] } } }, // Added 'completed'
         { $group: { _id: null, totalSales: { $sum: '$totalAmount' } } },
     ]);
     const totalSales = totalSalesResult.length > 0 ? totalSalesResult[0].totalSales : 0;
@@ -35,13 +36,12 @@ const getSuperAdminDashboard = asyncHandler(async (req, res) => {
     const recentOrders = await Order.find({})
         .sort({ createdAt: -1 })
         .limit(5)
-        .populate('userId')
-
+        .populate('user', 'name email'); // Populate 'user' not 'userId' based on common Mongoose schemas
 
     // Top Selling Products (example: by quantity sold)
     const topSellingProducts = await Order.aggregate([
         { $unwind: '$items' },
-        { $match: { status: { $in: ['approved', 'processing', 'shipped', 'delivered'] } } },
+        { $match: { status: { $in: ['approved', 'processing', 'shipped', 'delivered', 'completed'] } } }, // Added 'completed'
         {
             $group: {
                 _id: '$items.product',
@@ -53,7 +53,7 @@ const getSuperAdminDashboard = asyncHandler(async (req, res) => {
         { $limit: 5 },
         {
             $lookup: {
-                from: 'products', // The collection name (usually lowercase and plural of model name)
+                from: 'products', // The collection name
                 localField: '_id',
                 foreignField: '_id',
                 as: 'productDetails'
@@ -71,14 +71,12 @@ const getSuperAdminDashboard = asyncHandler(async (req, res) => {
         }
     ]);
 
-
-    // Delivery Status Distribution (assuming Delivery model and related data)
+    // Delivery Status Distribution
     const deliveryStatusDistribution = await Delivery.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
-
-    res.json({
+    const dashboardData = {
         totalUsers,
         totalProducts,
         totalOrders,
@@ -88,7 +86,20 @@ const getSuperAdminDashboard = asyncHandler(async (req, res) => {
         recentOrders,
         topSellingProducts,
         deliveryStatusDistribution
-    });
+    };
+
+    // Emit initial dashboard data to the requesting admin's socket or to the admin dashboard room
+    const io = getIo();
+    if (io) {
+        // You might want to emit this to the specific socket that made the request,
+        // or just ensure other controllers handle real-time updates.
+        // For an initial load, sending to the specific socket (if you have its ID) is better.
+        // For now, we'll assume the primary real-time updates come from other controllers.
+        // This function primarily serves the HTTP request.
+        console.log('Admin dashboard data fetched via HTTP. Real-time updates handled by other controllers.');
+    }
+
+    res.json(dashboardData);
 });
 
 // @desc    Get dashboard analytics for Vendor Admin
@@ -107,7 +118,6 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
     const totalVendorProducts = await Product.countDocuments({ vendor: vendorId });
 
     // Total Orders & Sales Volume for this Vendor's products
-    // This requires iterating through order items to sum up specific vendor's products
     const vendorSalesPipeline = [
         { $unwind: '$items' },
         {
@@ -119,7 +129,7 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
             }
         },
         { $unwind: '$productInfo' },
-        { $match: { 'productInfo.vendor': vendorId, status: { $in: ['approved', 'processing', 'shipped', 'delivered'] } } },
+        { $match: { 'productInfo.vendor': vendorId, status: { $in: ['approved', 'processing', 'shipped', 'delivered', 'completed'] } } }, // Added 'completed'
         {
             $group: {
                 _id: null,
@@ -131,7 +141,6 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
     const vendorSalesResult = await Order.aggregate(vendorSalesPipeline);
     const totalVendorOrders = vendorSalesResult.length > 0 ? vendorSalesResult[0].totalOrders.length : 0;
     const totalVendorSales = vendorSalesResult.length > 0 ? vendorSalesResult[0].totalSales : 0;
-
 
     // Order Status Distribution for this Vendor's products
     const vendorOrderStatusDistribution = await Order.aggregate([
@@ -148,7 +157,6 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
         { $match: { 'productInfo.vendor': vendorId } },
         { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
-
 
     // Complaints related to this Vendor
     const vendorComplaintStats = await Complaint.aggregate([
@@ -168,7 +176,7 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
             }
         },
         { $unwind: '$productDetails' },
-        { $match: { 'productDetails.vendor': vendorId, status: { $in: ['approved', 'processing', 'shipped', 'delivered'] } } },
+        { $match: { 'productDetails.vendor': vendorId, status: { $in: ['approved', 'processing', 'shipped', 'delivered', 'completed'] } } }, // Added 'completed'
         {
             $group: {
                 _id: '$items.product',
@@ -189,8 +197,7 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
         }
     ]);
 
-
-    res.json({
+    const dashboardData = {
         vendorName: req.user.vendor.name,
         totalVendorProducts,
         totalVendorOrders,
@@ -198,7 +205,17 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
         vendorOrderStatusDistribution,
         vendorComplaintStats,
         topSellingVendorProducts
-    });
+    };
+
+    const io = getIo();
+    if (io) {
+        // As with Super Admin, this primarily serves the HTTP request.
+        // Real-time updates for specific vendor dashboard will come from other controllers
+        // (e.g., product updates, order updates related to this vendor).
+        console.log(`Vendor dashboard data fetched via HTTP for vendor ID: ${vendorId}.`);
+    }
+
+    res.json(dashboardData);
 });
 
 module.exports = {

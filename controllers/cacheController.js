@@ -35,7 +35,7 @@ const cacheResponse = (entityPrefix, expireTime = 3600) => {
             // Override res.json to intercept the response and cache it before sending
             res.originalJson = res.json;
             res.json = function (data) {
-                redisClient.setEx(cacheKey, expireTime, JSON.stringify(data))
+                redisClient.set(cacheKey, JSON.stringify(data), 'EX', expireTime)
                     .catch(err => console.error(`Redis cache set error for ${cacheKey}:`, err));
                 // Call the original json function to send the response to the client
                 return res.originalJson(data);

@@ -12,15 +12,20 @@ const deliveryRoutes = require('./routes/deliverys');
 const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notification');
 const cookieParser = require("cookie-parser");
+const session = require('express-session'); // Moved up for clarity
+const MongoStore = require('connect-mongo'); // Moved up for clarity
+
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 const vendorRoutes = require('./routes/vendor');
 const adminRoutes = require('./routes/admin');
 const complaintRoutes = require('./routes/complaints');
 
-const http = require('http'); // Import http module
-const { client } = require('./config/redis'); // Import the Redis client instance directly
-const { initSocket } = require('./config/socket'); // Assuming this exists and needs `httpServer`
+const http = require('http');
+// Importing the Redis client and Socket.IO initializer directly
+const { client } = require('./config/redis'); // Renamed for clarity
+const { initSocket, getIo } = require('./config/socket'); // Import initSocket and getIo
+
 
 dotenv.config();
 
@@ -29,21 +34,22 @@ const app = express();
 // Create an HTTP server from your Express app
 const httpServer = http.createServer(app);
 
-// Initialize Socket.IO with the HTTP server (assuming initSocket expects httpServer)
+// Initialize Socket.IO with the HTTP server
+// Ensure initSocket handles potential errors or returns the io instance if needed
 initSocket(httpServer);
 
-// Global Middlewares
-app.use(express.json()); // For parsing application/json
+// --- Global Middlewares ---
+
+// Body Parser and Cookie Parser
+app.use(express.json()); // For parsing application/json requests
+app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 app.use(cookieParser()); // For parsing cookies
 
-// Configure express-session BEFORE CORS if `credentials: true` is used in CORS
-const session = require('express-session');
-const MongoStore = require('connect-mongo');
-
+// Session Configuration (BEFORE CORS if `credentials: true` is used)
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your_super_secret_key', // **CRITICAL: Change in Production!** Use a strong, random string.
+    secret: process.env.SESSION_SECRET || 'a_strong_fallback_secret_for_dev_only_please_change_this', // ⚠️ CRITICAL: Change in Production!
     resave: false, // Don't save session if unmodified
-    saveUninitialized: false, // Don't create session until something stored
+    saveUninitialized: false, // Don't create session until something is stored
     store: MongoStore.create({ // Use a persistent store for production
         mongoUrl: process.env.MONGO_URI, // Your MongoDB connection string
         collectionName: 'sessions', // Name of the collection to store sessions
@@ -61,13 +67,13 @@ app.use(session({
 
 // CORS Configuration
 app.use(cors({
-    origin: process.env.FRONTEND_URL || '*', // Specify your React app's origin(s) for production
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*', // Support multiple origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Include OPTIONS for pre-flight requests
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Added X-Requested-With
     credentials: true // Allow cookies to be sent (essential for sessions)
 }));
 
-// API Routes
+// --- API Routes ---
 app.use('/api/users', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -84,7 +90,7 @@ app.get('/', (req, res) => {
     res.send('Hello Modesta from Dorothy! Server is running.');
 });
 
-// Error Handling Middleware (must be after all routes)
+// --- Error Handling Middleware (must be after all routes) ---
 app.use(notFound);
 app.use(errorHandler);
 
@@ -97,9 +103,14 @@ const startServer = async () => {
         await connectDB();
         console.log('Database Connected Successfully! ✅');
 
-        // // Connect to Redis
-        // await client.connect();
-        // console.log('Redis Connected Successfully! 🚀');
+        // Connect to Redis
+        await client(); // Use the renamed client
+        console.log('Redis Connected Successfully! 🚀');
+
+        // This function will set up the Redis adapter and event listeners
+        initSocket(httpServer);
+        console.log('Socket.IO Initialized! ⚡');
+
 
         // Start the HTTP server (which Express app is attached to)
         httpServer.listen(PORT, () => {
@@ -108,9 +119,18 @@ const startServer = async () => {
 
     } catch (error) {
         console.error('Server failed to start:', error.message);
+        // It's good practice to log the full error stack in development/staging
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(error);
+        }
         process.exit(1); // Exit process with failure
     }
 };
 
-// Call the function to start the server
-startServer();
+// Export the startServer function and httpServer for testing purposes
+module.exports = { startServer, httpServer, app, getIo };
+
+// Call the function to start the server if not being imported for testing
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}

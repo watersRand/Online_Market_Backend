@@ -5,25 +5,33 @@ dotenv.config();
 
 
 // Create a Redis client instance
-const client = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379' // Use env var for URL
-});
+const client = async () => {
+    try {
+        await redis.createClient({
+            url: process.env.REDIS_URL || 'redis://localhost:6379' // Use env var for URL
+        });
 
-client.on('connect', () => {
-    console.log('Redis: Connection initiated...'); // This fires when it starts connecting
-});
+    }
+    catch (error) {
+        console.error(error)
+    }
 
-client.on('ready', () => {
-    console.log('Redis: Client is ready to use! ✅'); // This fires when connection is fully established
-});
 
-client.on('error', (err) => {
-    console.error('Redis: Client Error -', err);
-    // Important: Handle Redis connection errors gracefully.
-    // For production, consider robust logging and potential application-level alerts.
-});
 
-// IMPORTANT: Do NOT call client.connect() here.
-// It will be called once in server.js.
+}
+async function setCache(key, value, expirySeconds = 3600) {
+    await client.setex(key, expirySeconds, JSON.stringify(value));
+}
 
-module.exports = client; // Export the client instance
+async function getCache(key) {
+    const value = await client.get(key);
+    return value ? JSON.parse(value) : null;
+}
+
+async function deleteCache(key) {
+    await client.del(key);
+}
+
+module.exports = { setCache, getCache, deleteCache, client };
+
+// module.exports = client; // Export the client instance

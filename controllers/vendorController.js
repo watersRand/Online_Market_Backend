@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Vendor = require('../models/vendor');
 const User = require('../models/User');
 const { invalidateCache } = require('../controllers/cacheController')
+const { getIo } = require('../config/socket'); // Import getIo to access Socket.IO
 
 
 // @desc    Create a new vendor
@@ -21,7 +22,8 @@ const createVendor = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Owner user not found.');
     }
-    if (owner.vendor) { // Check if the user is already assigned as an owner of another vendor
+    // Check if the user is already assigned as an owner of *another* vendor (not the one being created/updated)
+    if (owner.vendor && owner.vendor.toString() !== req.body.vendorId) { // Added req.body.vendorId check for robustness
         res.status(400);
         throw new Error('This user is already an owner of another vendor.');
     }
@@ -44,7 +46,33 @@ const createVendor = asyncHandler(async (req, res) => {
 
     // Link the user to this newly created vendor
     owner.vendor = createdVendor._id;
+    // Potentially assign a 'vendor' role to the user if they don't have it already
+    if (!owner.roles.includes('vendor')) {
+        owner.roles.push('vendor');
+    }
     await owner.save(); // Don't forget to save the user update
+
+    const io = getIo(); // Get the Socket.IO instance
+    if (io) {
+        // Notify admins about the new vendor
+        io.to('admin_dashboard').emit('newVendorCreated', {
+            vendorId: createdVendor._id,
+            name: createdVendor.name,
+            ownerName: owner.name,
+            message: `New vendor "${createdVendor.name}" created, owned by ${owner.name}.`,
+            timestamp: new Date()
+        });
+        console.log(`Socket.IO: Emitted 'newVendorCreated' for admin dashboard.`);
+
+        // Also, potentially notify the new owner if they are online and joined their user room
+        io.to(`user:${owner._id.toString()}`).emit('vendorAssigned', {
+            vendorId: createdVendor._id,
+            name: createdVendor.name,
+            message: `You have been assigned as the owner of "${createdVendor.name}"!`,
+            timestamp: new Date()
+        });
+        console.log(`Socket.IO: Emitted 'vendorAssigned' to new owner: ${owner._id}`);
+    }
 
     res.status(201).json(createdVendor);
 });
@@ -83,39 +111,98 @@ const updateVendor = asyncHandler(async (req, res) => {
         throw new Error('Vendor not found.');
     }
 
-    vendor.name = name || vendor.name;
-    vendor.description = description || vendor.description;
+    const oldOwnerId = vendor.owner ? vendor.owner.toString() : null; // Store old owner ID
 
-    if (ownerId && ownerId.toString() !== vendor.owner.toString()) {
-        const newOwner = await User.findById(ownerId);
-        if (!newOwner) {
+    vendor.name = name !== undefined ? name : vendor.name;
+    vendor.description = description !== undefined ? description : vendor.description;
+
+    let oldOwnerUser = null;
+    let newOwnerUser = null;
+
+    // Handle owner change
+    if (ownerId && ownerId.toString() !== oldOwnerId) {
+        newOwnerUser = await User.findById(ownerId);
+        if (!newOwnerUser) {
             res.status(404);
             throw new Error('New owner user not found.');
         }
-        if (newOwner.vendor && newOwner.vendor.toString() !== vendor._id.toString()) {
+        // Check if new owner is already assigned to another vendor (but not this current one)
+        if (newOwnerUser.vendor && newOwnerUser.vendor.toString() !== vendor._id.toString()) {
             res.status(400);
             throw new Error('New owner is already assigned to another vendor.');
         }
 
         // Unlink old owner if exists
-        const oldOwner = await User.findById(vendor.owner);
-        if (oldOwner) {
-            oldOwner.vendor = undefined;
-            await oldOwner.save();
+        if (oldOwnerId) {
+            oldOwnerUser = await User.findById(oldOwnerId);
+            if (oldOwnerUser) {
+                oldOwnerUser.vendor = undefined;
+                // Optionally remove 'vendor' role if no other vendors are associated
+                oldOwnerUser.roles = oldOwnerUser.roles.filter(role => role !== 'vendor');
+                await oldOwnerUser.save();
+            }
         }
 
         // Link new owner
-        newOwner.vendor = vendor._id;
-        await newOwner.save();
-        vendor.owner = ownerId;
+        newOwnerUser.vendor = vendor._id;
+        if (!newOwnerUser.roles.includes('vendor')) {
+            newOwnerUser.roles.push('vendor');
+        }
+        await newOwnerUser.save();
+        vendor.owner = ownerId; // Update vendor's owner field
     }
-
 
     const updatedVendor = await vendor.save();
     await invalidateCache([
-        `vendors:/api/vendors/${req.params.id}`, // Specific product by ID
-        'vendors:/api/vendors*'                  // All product list views
+        `vendors:/api/vendors/${req.params.id}`,
+        'vendors:/api/vendors*'
     ]);
+
+    const io = getIo(); // Get the Socket.IO instance
+    if (io) {
+        // Notify admins about the vendor update
+        io.to('admin_dashboard').emit('vendorUpdated', {
+            vendorId: updatedVendor._id,
+            name: updatedVendor.name,
+            description: updatedVendor.description,
+            ownerId: updatedVendor.owner,
+            message: `Vendor "${updatedVendor.name}" has been updated.`,
+            timestamp: new Date()
+        });
+        console.log(`Socket.IO: Emitted 'vendorUpdated' for admin dashboard.`);
+
+        // If owner changed, notify affected users
+        if (oldOwnerUser) {
+            io.to(`user:${oldOwnerUser._id.toString()}`).emit('vendorUnassigned', {
+                vendorId: vendor._id,
+                name: vendor.name,
+                message: `You are no longer the owner of "${vendor.name}".`,
+                timestamp: new Date()
+            });
+            console.log(`Socket.IO: Emitted 'vendorUnassigned' to old owner: ${oldOwnerUser._id}`);
+        }
+        if (newOwnerUser) {
+            io.to(`user:${newOwnerUser._id.toString()}`).emit('vendorAssigned', {
+                vendorId: updatedVendor._id,
+                name: updatedVendor.name,
+                message: `You have been assigned as the owner of "${updatedVendor.name}"!`,
+                timestamp: new Date()
+            });
+            console.log(`Socket.IO: Emitted 'vendorAssigned' to new owner: ${newOwnerUser._id}`);
+        }
+
+        // Potentially notify the vendor's own dashboard if they are currently online
+        if (updatedVendor.owner) {
+            io.to(`vendor_dashboard:${updatedVendor._id.toString()}`).emit('vendorDetailsUpdated', {
+                vendorId: updatedVendor._id,
+                name: updatedVendor.name,
+                description: updatedVendor.description,
+                message: `Your vendor details have been updated by an admin.`,
+                timestamp: new Date()
+            });
+            console.log(`Socket.IO: Emitted 'vendorDetailsUpdated' for vendor dashboard: ${updatedVendor._id}`);
+        }
+    }
 
     res.json(updatedVendor);
 });
@@ -131,21 +218,63 @@ const deleteVendor = asyncHandler(async (req, res) => {
         throw new Error('Vendor not found.');
     }
 
+    // Store owner and vendor ID for notifications before deletion
+    const oldOwnerId = vendor.owner ? vendor.owner.toString() : null;
+    const vendorIdToDelete = vendor._id.toString();
+
     // Unlink the owner user if they exist
     const owner = await User.findById(vendor.owner);
     if (owner) {
         owner.vendor = undefined;
+        // Remove 'vendor' role if they are no longer associated with any vendor
+        owner.roles = owner.roles.filter(role => role !== 'vendor');
         await owner.save();
     }
 
     // You might also want to handle products associated with this vendor (e.g., delete them, mark them inactive)
-    // await Product.deleteMany({ vendor: vendor._id });
+    // await Product.updateMany({ vendor: vendor._id }, { isActive: false }); // Example: mark products inactive
+    // OR: await Product.deleteMany({ vendor: vendor._id }); // Example: delete all products
 
     await Vendor.deleteOne({ _id: vendor._id });
     await invalidateCache([
-        `vendors:/api/vendors/${req.params.id}`, // Specific product by ID
-        'vendors:/api/vendors*'                  // All product list views
+        `vendors:/api/vendors/${req.params.id}`,
+        'vendors:/api/vendors*'
     ]);
+
+    const io = getIo(); // Get the Socket.IO instance
+    if (io) {
+        // Notify admins about the vendor deletion
+        io.to('admin_dashboard').emit('vendorDeleted', {
+            vendorId: vendorIdToDelete,
+            name: vendor.name,
+            message: `Vendor "${vendor.name}" has been deleted.`,
+            timestamp: new Date()
+        });
+        console.log(`Socket.IO: Emitted 'vendorDeleted' for admin dashboard.`);
+
+        // Notify the old owner that their vendor was deleted
+        if (oldOwnerId) {
+            io.to(`user:${oldOwnerId}`).emit('vendorDeletedFromAccount', {
+                vendorId: vendorIdToDelete,
+                name: vendor.name,
+                message: `The vendor "${vendor.name}" you owned has been deleted from the system.`,
+                timestamp: new Date()
+            });
+            console.log(`Socket.IO: Emitted 'vendorDeletedFromAccount' to old owner: ${oldOwnerId}`);
+        }
+
+        // Potentially notify the vendor's own dashboard (if somehow it's still connected before deletion)
+        io.to(`vendor_dashboard:${vendorIdToDelete}`).emit('vendorAccountDeleted', {
+            vendorId: vendorIdToDelete,
+            name: vendor.name,
+            message: `Your vendor account "${vendor.name}" has been deleted.`,
+            timestamp: new Date()
+        });
+        console.log(`Socket.IO: Emitted 'vendorAccountDeleted' to vendor dashboard: ${vendorIdToDelete}`);
+
+        // If you had a general 'vendors_list' room for public
+        // io.emit('vendorRemovedFromList', { vendorId: vendorIdToDelete, name: vendor.name });
+    }
 
     res.json({ message: 'Vendor removed' });
 });
