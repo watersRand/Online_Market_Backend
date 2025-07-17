@@ -43,7 +43,7 @@
                 messageDiv.classList.add('bg-blue-100', 'border', 'border-blue-400', 'text-blue-700');
             }
 
-            messageDiv.textContent = content;
+            messageDiv.innerHTML = content; // Use innerHTML to allow bold/italic from server messages
 
             // Optional: Add a close button
             const closeButton = document.createElement('span');
@@ -143,7 +143,7 @@
         });
         socket.on('vendorAccountDeleted', (data) => {
             displaySocketMessage('error', `Your vendor account "${data.name}" has been deleted.`);
-            setTimeout(() => { window.location.href = '/auth/login'; }, 2000); // Redirect on account deletion
+            setTimeout(() => { window.location.href = '/login'; }, 2000); // Redirect to /login, not /auth/login
         });
         socket.on('vendorDetailsUpdated', (data) => {
             displaySocketMessage('info', `Your vendor details for "${data.name}" have been updated by an admin.`);
@@ -159,7 +159,7 @@
         socket.on('newDeliveryAssignmentAdmin', (data) => {
             displaySocketMessage('success', `Admin: Order #${data.orderId} assigned to ${data.deliveryPersonName}. Status: ${data.status}`);
         });
-        socket.on('orderStatusUpdate', (data) => { // This can come from delivery updates affecting order status
+        socket.on('orderStatusUpdate', (data) => {
             displaySocketMessage('info', `Order #${data.orderId} status changed to: **${data.newStatus}**`);
         });
         socket.on('deliveryUpdateForOrder', (data) => {
@@ -198,8 +198,6 @@
         // --- CART CONTROLLER EVENTS ---
         socket.on('cartUpdated', (data) => {
             displaySocketMessage('success', `Your cart has been updated! Total items: ${data.items.length}, Total price: $${data.totalPrice.toFixed(2)}.`);
-            // Optional: Trigger UI update for cart count in header or cart page if active
-            // if (window.location.pathname === '/cart') { window.location.reload(); } // Simple reload
         });
         socket.on('adminCartActivity', (data) => {
             displaySocketMessage('info', `Admin: Cart activity detected for user ID: ${data.userId} (Action: ${data.action}).`);
@@ -217,45 +215,81 @@
         });
         socket.on('accountDeleted', (data) => {
             displaySocketMessage('error', data.message);
-            setTimeout(() => { window.location.href = '/auth/login'; }, 2000); // Redirect on account deletion
+            setTimeout(() => { window.location.href = '/login'; }, 2000); // Redirect to /login, not /auth/login
         });
         socket.on('userUpdated', (data) => {
             displaySocketMessage('info', `User Profile Updated: ${data.name} (${data.email}).`);
         });
         socket.on('profileUpdated', (data) => {
             displaySocketMessage('success', data.message);
-            // Optional: Reload profile page to reflect changes
-            // setTimeout(() => { window.location.reload(); }, 1000);
         });
         socket.on('loggedOut', (data) => {
             displaySocketMessage('info', data.message);
-            setTimeout(() => { window.location.href = '/auth/login'; }, 1000); // Redirect on logout
+            setTimeout(() => { window.location.href = '/login'; }, 1000); // Redirect to /login, not /auth/login
+        });
+
+        // --- PAYMENT CONTROLLER EVENTS ---
+        socket.on('paymentInitiated', (data) => {
+            displaySocketMessage('info', `Payment initiated for Order #${data.orderId}. Please complete the transaction on your phone.`);
+        });
+        socket.on('paymentCompleted', (data) => {
+            displaySocketMessage('success', `Payment of $${data.amount.toFixed(2)} for Order #${data.orderId} successful! Receipt: ${data.receiptNumber}.`);
+        });
+        socket.on('paymentFailed', (data) => {
+            displaySocketMessage('error', `Payment for Order #${data.orderId} failed: ${data.reason}.`);
+        });
+        socket.on('paymentCancelled', (data) => {
+            displaySocketMessage('warning', `Payment for Order #${data.orderId} was cancelled.`);
+        });
+        socket.on('adminPaymentUpdate', (data) => {
+            displaySocketMessage('info', `Admin: Payment for Order #${data.orderId} updated to ${data.status}.`);
+        });
+
+        // --- NEW: GENERIC NOTIFICATION EVENT (from notificationController) ---
+        socket.on('notification', (payload) => {
+            console.log('Received generic notification:', payload);
+            // Use the displaySocketMessage function to show the notification
+            // The 'type' in payload should map to your CSS classes (e.g., 'success', 'error', 'info', 'warning')
+            displaySocketMessage(payload.type || 'info', payload.message);
+
+            // Optional: If you have a notification bell/icon, you might update its count here
+            // const notificationBell = document.getElementById('notification-bell');
+            // if (notificationBell) {
+            //     let count = parseInt(notificationBell.dataset.count || 0);
+            //     notificationBell.dataset.count = count + 1;
+            //     notificationBell.classList.add('has-new-notifications'); // Add a visual cue
+            // }
         });
 
 
         // --- CLIENT-SIDE ROOM JOINING LOGIC ---
-        // These `socket.emit` calls should be conditional based on the user's role and the current page.
-        // The `user` object is expected to be passed from the server to the EJS template.
+        // Only attempt to join user-specific rooms if user is authenticated and has an _id
+        <% if (typeof user !== 'undefined' && user && user._id) { %>
+            // Join user-specific room for all authenticated users
+            socket.emit('joinUserRoom', '<%= user._id.toString() %>');
+            console.log('Client joined user_room for user: <%= user._id.toString() %>.');
 
-        <% if (typeof user !== 'undefined' && user && user.roles) { %>
-            <% if (user.roles.includes('Admin')) { %>
+            // Role-specific room joining (based on user.roles being a string)
+            <% if (user.roles === 'Admin') { %>
                 socket.emit('joinAdminDashboard');
                 console.log('Client joined admin_dashboard room.');
             <% } %>
-            <% if (user.roles.includes('vendor') && user.vendor) { %>
-                socket.emit('joinVendorDashboard', '<%= user.vendor.toString() %>');
-                console.log('Client joined vendor_dashboard room for vendor: <%= user.vendor.toString() %>.');
+
+            <% if (user.roles === 'Vendor' && user.vendor && user.vendor._id) { %>
+                socket.emit('joinVendorDashboard', '<%= user.vendor._id.toString() %>');
+                console.log('Client joined vendor_dashboard room for vendor: <%= user.vendor._id.toString() %>.');
             <% } %>
-            <% if (user.isDeliveryPerson) { %>
+
+            <% if (user.isDeliveryPerson && user._id) { %>
                 socket.emit('joinDeliveryPersonRoom', '<%= user._id.toString() %>');
                 console.log('Client joined delivery_person_room for user: <%= user._id.toString() %>.');
             <% } %>
-                // All authenticated users should join their specific user room for personal notifications
-                socket.emit('joinUserRoom', '<%= user._id.toString() %>');
-            console.log('Client joined user_room for user: <%= user._id.toString() %>.');
+
+        <% } else { %>
+            console.log('User not authenticated, skipping user-specific Socket.IO room joins.');
         <% } %>
 
-        // Join specific page rooms if on that page
+        // Product page room joining (if the current page is a product detail page)
         const currentProductIdElement = document.getElementById('currentProductId');
         if (currentProductIdElement) {
             const productId = currentProductIdElement.value;
@@ -263,6 +297,7 @@
             console.log('Client joined product_page room for product: ' + productId);
         }
 
+        // Service page room joining
         const currentServiceIdElement = document.getElementById('currentServiceId');
         if (currentServiceIdElement) {
             const serviceId = currentServiceIdElement.value;
@@ -270,6 +305,7 @@
             console.log('Client joined service_page room for service: ' + serviceId);
         }
 
+        // Vendor page room joining
         const currentVendorIdElement = document.getElementById('currentVendorId');
         if (currentVendorIdElement) {
             const vendorId = currentVendorIdElement.value;
@@ -277,6 +313,7 @@
             console.log('Client joined vendor_page room for vendor: ' + vendorId);
         }
 
+        // Order page room joining
         const currentOrderIdElement = document.getElementById('currentOrderId');
         if (currentOrderIdElement) {
             const orderId = currentOrderIdElement.value;
@@ -284,6 +321,7 @@
             console.log('Client joined order_page room for order: ' + orderId);
         }
 
+        // Delivery page room joining
         const currentDeliveryIdElement = document.getElementById('currentDeliveryId');
         if (currentDeliveryIdElement) {
             const deliveryId = currentDeliveryIdElement.value;
@@ -291,11 +329,20 @@
             console.log('Client joined delivery_page room for delivery: ' + deliveryId);
         }
 
+        // Complaint page room joining
         const currentComplaintIdElement = document.getElementById('currentComplaintId');
         if (currentComplaintIdElement) {
             const complaintId = currentComplaintIdElement.value;
             socket.emit('joinComplaintPage', complaintId);
             console.log('Client joined complaint_page room for complaint: ' + complaintId);
+        }
+
+        // Payment page room joining
+        const currentPaymentIdElement = document.getElementById('currentPaymentId');
+        if (currentPaymentIdElement) {
+            const paymentId = currentPaymentIdElement.value;
+            socket.emit('joinPaymentPage', paymentId);
+            console.log('Client joined payment_page room for payment: ' + paymentId);
         }
     });
 </script>

@@ -74,19 +74,19 @@
 <body class="flex flex-col min-h-screen">
 
     <!-- Header Partial -->
-    <%- include('partials/header') %>
+    <%- include("../partials/header") %>
 
         <!-- Main Content Area -->
         <main class="flex-grow container mx-auto px-4 py-8">
             <!-- Message Display Area (Flash messages and Socket.IO messages) -->
-            <%- include('partials/messages') %>
+            <%- include('../partials/messages') %>
 
                 <!-- EJS Body Content will be rendered here based on the route -->
                 <%- body %>
         </main>
 
         <!-- Footer Partial -->
-        <%- include('partials/footer') %>
+        <%- include('../partials/footer') %>
 
 </body>
 

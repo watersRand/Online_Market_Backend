@@ -10,6 +10,9 @@ const orderRoutes = require('./routes/orders');
 const productRoutes = require('./routes/products');
 const deliveryRoutes = require('./routes/deliverys');
 const paymentRoutes = require('./routes/payments');
+const path = require('path');
+const expressLayouts = require('express-ejs-layouts');
+const methodOverride = require('method-override');
 const notificationRoutes = require('./routes/notification');
 const cookieParser = require("cookie-parser");
 const session = require('express-session'); // Moved up for clarity
@@ -38,6 +41,15 @@ const httpServer = http.createServer(app);
 // Ensure initSocket handles potential errors or returns the io instance if needed
 initSocket(httpServer);
 
+
+// --- EJS Setup ---
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(expressLayouts);
+app.set('layout', 'layouts/layout'); // Point to your main layout.ejs
+
+// --- Method Override for PUT/DELETE forms ---
+app.use(methodOverride('_method'));
 // --- Global Middlewares ---
 
 // Body Parser and Cookie Parser
@@ -73,6 +85,38 @@ app.use(cors({
     credentials: true // Allow cookies to be sent (essential for sessions)
 }));
 
+// Middleware to make `user` and `cartItemCount` available to all EJS templates
+app.use(async (req, res, next) => {
+    // Ensure req.user is always an object, even if not authenticated
+    // This provides a safe default for EJS templates to prevent 'undefined' errors
+    if (!req.user) {
+        req.user = {
+            _id: null, // No ID for unauthenticated users
+            name: 'Guest',
+            email: null,
+            phoneNumber: null,
+            roles: ['guest'], // Assign a default 'guest' role as an array
+            isAdmin: false,
+            isDeliveryPerson: false,
+            vendor: null
+        };
+    }
+
+    // Now, res.locals.user will always be an object with a 'roles' array
+    res.locals.user = req.user;
+    // Simulate cart item count for header
+    const Cart = require('./models/carts');
+    let cart;
+    if (req.user && req.user._id) { // Only try to find cart if user is authenticated (has an _id)
+        cart = await Cart.findOne({ userId: req.user._id });
+    } else if (req.session && req.session.id) { // For anonymous users, use session ID
+        cart = await Cart.findOne({ sessionId: req.session.id });
+    }
+    res.locals.cartItemCount = cart && cart.items ? cart.items.length : 0;
+
+    next();
+});
+
 // --- API Routes ---
 app.use('/api/users', authRoutes);
 app.use('/api/products', productRoutes);
@@ -87,7 +131,7 @@ app.use('/api/complaints', complaintRoutes);
 
 // Root route for server health check
 app.get('/', (req, res) => {
-    res.send('Hello Modesta from Dorothy! Server is running.');
+    res.render('home', { title: 'Home' });
 });
 
 // --- Error Handling Middleware (must be after all routes) ---

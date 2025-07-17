@@ -1,0 +1,61 @@
+<h1 class="text-3xl font-bold text-gray-800 mb-6">My Payments</h1>
+
+<% if (typeof payments !=='undefined' && payments.length> 0) { %>
+    <div class="bg-white p-6 card overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="table-header">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment
+                        ID</th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Initiated
+                        On</th>
+                    <th scope="col" class="relative px-6 py-3">
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <% payments.forEach(payment=> { %>
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <%= payment._id %>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <%= payment.order ? payment.order._id : 'N/A' %>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">$<%= payment.amount.toFixed(2) %>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="status-badge status-<%= payment.status.toLowerCase().replace(' ', '-') %>">
+                                <%= payment.status %>
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <%= new Date(payment.createdAt).toLocaleDateString() %>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="/payments/<%= payment._id %>" class="text-indigo-600 hover:text-indigo-900">View
+                                Details</a>
+                        </td>
+                    </tr>
+                    <% }); %>
+            </tbody>
+        </table>
+    </div>
+    <% } else { %>
+        <div class="text-center text-gray-600 py-12 bg-white card">
+            <p class="text-xl mb-4">You have no payment records.</p>
+            <a href="/products" class="btn btn-primary inline-block">Start Shopping</a>
+        </div>
+        <% } %>
