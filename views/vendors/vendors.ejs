@@ -2,7 +2,7 @@
 
 <div class="flex justify-end items-center mb-6">
     <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-        <a href="/vendors/create" class="btn btn-primary px-4 py-2">Create New Vendor</a>
+        <a href="/api/vendors/vendors/create" class="btn btn-primary px-4 py-2">Create New Vendor</a>
         <% } %>
 </div>
 
@@ -38,12 +38,12 @@
                             <%= vendor.owner ? vendor.owner.email : 'N/A' %>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="/vendors/<%= vendor._id %>"
+                            <a href="/api/vendors/vendors/<%= vendor._id %>"
                                 class="text-indigo-600 hover:text-indigo-900 mr-4">View</a>
                             <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-                                <a href="/vendors/edit/<%= vendor._id %>"
+                                <a href="/api/vendors/vendors/edit/<%= vendor._id %>"
                                     class="text-blue-600 hover:text-blue-900 mr-4">Edit</a>
-                                <form action="/vendors/<%= vendor._id %>?_method=DELETE" method="POST"
+                                <form action="/api/vendors/vendors/<%= vendor._id %>?_method=DELETE" method="POST"
                                     class="inline-block"
                                     onsubmit="return confirm('Are you sure you want to delete this vendor? This will also unlink the owner and may affect associated products.');">
                                     <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
@@ -59,7 +59,7 @@
         <div class="text-center text-gray-600 py-12 bg-white card">
             <p class="text-xl mb-4">No vendors found.</p>
             <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-                <a href="/vendors/create" class="btn btn-primary inline-block">Create Your First Vendor</a>
+                <a href="/api/vendors/vendors/create" class="btn btn-primary inline-block">Create Your First Vendor</a>
                 <% } %>
         </div>
         <% } %>

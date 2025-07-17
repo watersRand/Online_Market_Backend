@@ -5,7 +5,7 @@
 
     <!-- Search Bar -->
     <div class="mb-8 p-6 card">
-        <form action="/products" method="GET" class="flex flex-col sm:flex-row gap-4 items-center">
+        <form action="/api/products/products" method="GET" class="flex flex-col sm:flex-row gap-4 items-center">
             <input type="text" name="keyword" placeholder="Search products..." value="<%= keyword %>"
                 class="form-input flex-grow rounded-md focus:ring-indigo-500 focus:border-indigo-500">
             <button type="submit" class="btn-primary w-full sm:w-auto">Search</button>
@@ -16,12 +16,12 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
             <% products.forEach(product=> { %>
                 <div class="card p-6 flex flex-col items-center text-center">
-                    <a href="/products/<%= product._id %>" class="block w-full">
+                    <a href="/api/products/products/<%= product._id %>" class="block w-full">
                         <img src="<%= product.image || 'https://placehold.co/400x400/cccccc/333333?text=Product' %>"
                             alt="<%= product.name %>" class="w-full h-48 object-cover rounded-md mb-4 shadow-sm">
                     </a>
                     <h2 class="text-xl font-semibold text-gray-800 mb-2 truncate w-full">
-                        <a href="/products/<%= product._id %>" class="hover:text-indigo-600">
+                        <a href="/api/products/products/<%= product._id %>" class="hover:text-indigo-600">
                             <%= product.name %>
                         </a>
                     </h2>
@@ -39,7 +39,8 @@
                     </p>
 
                     <div class="flex flex-col sm:flex-row gap-2 w-full mt-auto">
-                        <form action="/cart/add" method="POST" class="flex-grow flex items-center justify-center">
+                        <form action="/api/carts/cart/add" method="POST"
+                            class="flex-grow flex items-center justify-center">
                             <input type="hidden" name="productId" value="<%= product._id %>">
                             <label for="quantity-<%= product._id %>" class="sr-only">Quantity</label>
                             <input type="number" id="quantity-<%= product._id %>" name="quantity" value="1" min="1"
@@ -54,7 +55,7 @@
                             isAuthorizedToEdit=user && user.roles==='Vendor' && user.vendor && product.vendor &&
                             product.vendor._id.toString()===user.vendor._id.toString(); %>
                             <% if (isAuthorizedToEdit) { %>
-                                <a href="/products/edit/<%= product._id %>"
+                                <a href="/api/products/products/edit/<%= product._id %>"
                                     class="btn-secondary w-full sm:w-auto text-center py-2 px-4 rounded-md">Edit</a>
                                 <% } %>
                     </div>
@@ -66,13 +67,15 @@
         <div class="flex justify-center mt-12">
             <nav class="flex items-center space-x-2">
                 <% if (page> 1) { %>
-                    <a href="/products?page=<%= page - 1 %>&keyword=<%= keyword %>" class="btn-secondary">&laquo;
+                    <a href="/api/products/products?page=<%= page - 1 %>&keyword=<%= keyword %>"
+                        class="btn-secondary">&laquo;
                         Previous</a>
                     <% } %>
                         <span class="px-4 py-2 rounded-md bg-indigo-500 text-white">Page <%= page %> of <%= pages %>
-                                    </span>
+                        </span>
                         <% if (page < pages) { %>
-                            <a href="/products?page=<%= page + 1 %>&keyword=<%= keyword %>" class="btn-secondary">Next
+                            <a href="/api/products/products?page=<%= page + 1 %>&keyword=<%= keyword %>"
+                                class="btn-secondary">Next
                                 &raquo;</a>
                             <% } %>
             </nav>
@@ -82,7 +85,7 @@
             <div class="text-center text-gray-600 py-12 bg-white card">
                 <h1 class="text-3xl font-bold mb-4">No Products Found</h1>
                 <p>There are currently no products available, or your search did not match any products.</p>
-                <a href="/products" class="btn-primary mt-6 inline-block">Clear Search</a>
+                <a href="/api/products/products" class="btn-primary mt-6 inline-block">Clear Search</a>
             </div>
             <% } %>
 </div>

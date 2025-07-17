@@ -4,13 +4,13 @@
 
 <div class="flex justify-between items-center mb-6">
     <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-        <a href="/deliveries/assign" class="btn btn-primary px-4 py-2">Assign New Delivery</a>
+        <a href="/api/deliveries/deliveries/assign" class="btn btn-primary px-4 py-2">Assign New Delivery</a>
         <% } %>
             <% if (typeof user !=='undefined' && user.isDeliveryPerson) { %>
-                <a href="/deliveries/my-deliveries"
+                <a href="/api/deliveries/deliveries/my-deliveries"
                     class="btn <%= typeof isMyDeliveries !== 'undefined' && isMyDeliveries ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">View
                     My Deliveries</a>
-                <a href="/deliveries"
+                <a href="/api/deliveries/deliveries"
                     class="btn <%= typeof isMyDeliveries !== 'undefined' && isMyDeliveries ? 'btn-secondary' : 'btn-primary' %> px-4 py-2">View
                     All Deliveries</a>
                 <% } %>
@@ -62,7 +62,7 @@
                             <%= new Date(delivery.assignmentDate).toLocaleDateString() %>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="/deliveries/<%= delivery._id %>"
+                            <a href="/api/deliveries/deliveries/<%= delivery._id %>"
                                 class="text-indigo-600 hover:text-indigo-900 mr-4">View Details</a>
                             <% if (typeof user !=='undefined' && (user.roles.includes('Admin') || (user.isDeliveryPerson
                                 && delivery.deliveryPerson &&
@@ -79,7 +79,8 @@
         <div class="text-center text-gray-600 py-12 bg-white card">
             <p class="text-xl mb-4">No deliveries found.</p>
             <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-                <a href="/deliveries/assign" class="btn btn-primary inline-block">Assign Your First Delivery</a>
+                <a href="/api/deliveries/deliveries/assign" class="btn btn-primary inline-block">Assign Your First
+                    Delivery</a>
                 <% } %>
         </div>
         <% } %>

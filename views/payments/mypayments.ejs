@@ -45,7 +45,8 @@
                             <%= new Date(payment.createdAt).toLocaleDateString() %>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="/payments/<%= payment._id %>" class="text-indigo-600 hover:text-indigo-900">View
+                            <a href="/api/payments/payments/<%= payment._id %>"
+                                class="text-indigo-600 hover:text-indigo-900">View
                                 Details</a>
                         </td>
                     </tr>
@@ -56,6 +57,6 @@
     <% } else { %>
         <div class="text-center text-gray-600 py-12 bg-white card">
             <p class="text-xl mb-4">You have no payment records.</p>
-            <a href="/products" class="btn btn-primary inline-block">Start Shopping</a>
+            <a href="/api/products/products" class="btn btn-primary inline-block">Start Shopping</a>
         </div>
         <% } %>

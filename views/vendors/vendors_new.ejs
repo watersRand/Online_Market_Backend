@@ -3,7 +3,8 @@
 </h1>
 
 <div class="bg-white p-8 card max-w-2xl mx-auto">
-    <form action="<%= typeof vendor !== 'undefined' ? '/vendors/' + vendor._id + '?_method=PUT' : '/vendors' %>"
+    <form
+        action="<%= typeof vendor !== 'undefined' ? '/api/vendors/vendors/' + vendor._id + '?_method=PUT' : '/vendors' %>"
         method="POST">
         <div class="mb-4">
             <label for="name" class="block text-gray-700 font-medium mb-2">Vendor Name</label>

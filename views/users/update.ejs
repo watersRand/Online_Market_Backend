@@ -1,7 +1,7 @@
 <h1 class="text-3xl font-bold text-gray-800 mb-6">Update User Profile</h1>
 
 <div class="bg-white p-8 card max-w-2xl mx-auto">
-    <form action="/admin/users/<%= userToEdit._id %>?_method=PUT" method="POST">
+    <form action="/api/users/<%= userToEdit._id %>?_method=PUT" method="POST">
         <div class="mb-4">
             <label for="name" class="block text-gray-700 font-medium mb-2">Name</label>
             <input type="text" id="name" name="name" class="form-input" value="<%= userToEdit.name %>" required>

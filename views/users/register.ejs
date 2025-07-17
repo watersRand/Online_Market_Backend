@@ -1,7 +1,7 @@
 <div class="flex items-center justify-center min-h-[70vh]">
     <div class="bg-white p-8 card w-full max-w-md">
         <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Register</h1>
-        <form action="/auth/register" method="POST">
+        <form action="/api/users/register" method="POST">
             <div class="mb-4">
                 <label for="name" class="block text-gray-700 font-medium mb-2">Full Name</label>
                 <input type="text" id="name" name="name" class="form-input" required>
@@ -20,7 +20,7 @@
             </div>
             <button type="submit" class="btn btn-primary w-full py-2 text-lg">Register</button>
         </form>
-        <p class="text-center text-gray-600 mt-4">Already have an account? <a href="/auth/login"
+        <p class="text-center text-gray-600 mt-4">Already have an account? <a href="/api/users/login"
                 class="text-indigo-600 hover:underline">Login here</a></p>
     </div>
 </div>

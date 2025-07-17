@@ -61,7 +61,7 @@
             <% if (canUpdate) { %>
                 <div class="bg-gray-50 p-6 card mt-8">
                     <h2 class="text-2xl font-semibold text-gray-800 mb-4">Update Delivery Status</h2>
-                    <form action="/deliveries/<%= delivery._id %>/status?_method=PUT" method="POST">
+                    <form action="/api/deliveries/deliveries/<%= delivery._id %>/status?_method=PUT" method="POST">
                         <div class="mb-4">
                             <label for="status" class="block text-gray-700 font-medium mb-2">New Status</label>
                             <select id="status" name="status" class="form-input" required>
@@ -110,6 +110,6 @@
         <div class="text-center text-gray-600 py-12 bg-white card">
             <h1 class="text-3xl font-bold mb-4">Delivery Not Found</h1>
             <p>The delivery record you are looking for does not exist.</p>
-            <a href="/deliveries" class="btn btn-primary mt-6 inline-block">Back to Deliveries</a>
+            <a href="/api/deliveries/deliveries" class="btn btn-primary mt-6 inline-block">Back to Deliveries</a>
         </div>
         <% } %>

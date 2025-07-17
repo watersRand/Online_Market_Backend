@@ -3,7 +3,8 @@
 </h1>
 
 <div class="bg-white p-8 card max-w-2xl mx-auto">
-    <form action="<%= typeof product !== 'undefined' ? '/products/' + product._id + '?_method=PUT' : '/products' %>"
+    <form
+        action="<%= typeof product !== 'undefined' ? '/api/products/products/' + product._id + '?_method=PUT' : '/api/products/products' %>"
         method="POST">
         <div class="mb-4">
             <label for="name" class="block text-gray-700 font-medium mb-2">Product Name</label>

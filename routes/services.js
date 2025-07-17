@@ -36,7 +36,7 @@ router.get('/services/:id', async (req, res) => {
     if (!service) {
         return res.status(404).render('error', { title: 'Service Not Found', message: 'Service not found.' });
     }
-    res.render('/services/services_detail', { title: service.name, service, user: req.user });
+    res.render('services/services_detail', { title: service.name, service, user: req.user });
 });
 
 // Handle service deletion

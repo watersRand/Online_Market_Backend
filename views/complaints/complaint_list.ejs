@@ -10,21 +10,21 @@
 
 <div class="flex justify-between items-center mb-6">
     <% if (typeof user !=='undefined' && user) { %>
-        <a href="/complaints/file" class="btn btn-primary px-4 py-2">File New Complaint</a>
+        <a href="/api/complaints/complaints/file" class="btn btn-primary px-4 py-2">File New Complaint</a>
         <% } %>
             <div class="flex space-x-4">
                 <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-                    <a href="/complaints"
+                    <a href="/api/complaints/complaints"
                         class="btn <%= typeof isMyComplaints === 'undefined' && typeof isVendorComplaints === 'undefined' ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">All
                         Complaints</a>
                     <% } %>
                         <% if (typeof user !=='undefined' && user.roles.includes('vendor')) { %>
-                            <a href="/complaints/vendor"
+                            <a href="/api/complaints/complaints/vendor"
                                 class="btn <%= typeof isVendorComplaints !== 'undefined' && isVendorComplaints ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">My
                                 Vendor Complaints</a>
                             <% } %>
                                 <% if (typeof user !=='undefined' && user) { %>
-                                    <a href="/complaints/my-complaints"
+                                    <a href="/api/complaints/complaints/my-complaints"
                                         class="btn <%= typeof isMyComplaints !== 'undefined' && isMyComplaints ? 'btn-primary' : 'btn-secondary' %> px-4 py-2">My
                                         Filed Complaints</a>
                                     <% } %>
@@ -99,7 +99,7 @@
                                     <%= new Date(complaint.createdAt).toLocaleDateString() %>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <a href="/complaints/<%= complaint._id %>"
+                                    <a href="/api/complaints/complaints/<%= complaint._id %>"
                                         class="text-indigo-600 hover:text-indigo-900">View Details</a>
                                 </td>
                     </tr>
@@ -111,7 +111,8 @@
         <div class="text-center text-gray-600 py-12 bg-white card">
             <p class="text-xl mb-4">No complaints found.</p>
             <% if (typeof user !=='undefined' && user) { %>
-                <a href="/complaints/file" class="btn btn-primary inline-block">File Your First Complaint</a>
+                <a href="/api/complaints/complaints/file" class="btn btn-primary inline-block">File Your First
+                    Complaint</a>
                 <% } %>
         </div>
         <% } %>

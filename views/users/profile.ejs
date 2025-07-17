@@ -27,7 +27,7 @@
         </ul>
 
         <h2 class="text-2xl font-semibold text-gray-800 mb-4">Update Profile</h2>
-        <form action="/auth/profile?_method=PUT" method="POST">
+        <form action="/api/users/profile?_method=PUT" method="POST">
             <div class="mb-4">
                 <label for="name" class="block text-gray-700 font-medium mb-2">Name</label>
                 <input type="text" id="name" name="name" class="form-input" value="<%= userProfile.name %>" required>
@@ -47,7 +47,7 @@
 
         <div class="mt-8 pt-6 border-t border-gray-200">
             <h2 class="text-2xl font-semibold text-red-600 mb-4">Danger Zone</h2>
-            <form action="/auth/profile?_method=DELETE" method="POST"
+            <form action="/api/users/profile?_method=DELETE" method="POST"
                 onsubmit="return confirm('Are you absolutely sure you want to delete your account? This action cannot be undone.');">
                 <button type="submit" class="btn bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">Delete My
                     Account</button>
@@ -58,6 +58,6 @@
         <div class="text-center text-gray-600 py-12 bg-white card">
             <h1 class="text-3xl font-bold mb-4">Profile Not Found</h1>
             <p>Could not load your user profile. Please log in again.</p>
-            <a href="/auth/login" class="btn btn-primary mt-6 inline-block">Login</a>
+            <a href="/api/users/login" class="btn btn-primary mt-6 inline-block">Login</a>
         </div>
         <% } %>
