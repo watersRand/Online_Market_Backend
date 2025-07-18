@@ -40,12 +40,45 @@ router.post('/orders', async (req, res) => {
     // In a real app, you'd move this to an orderController
     console.log('Order placed simulation:', req.body);
     // After placing order, you'd clear the cart and redirect
-    res.redirect('/order-confirmation'); // Redirect to a confirmation page
+    res.redirect('/api/orders/order-confirm'); // Redirect to a confirmation page
 });
 
-router.get('/order-confirmation', (req, res) => {
-    res.render('order_confirmation', { title: 'Order Confirmation', message: 'Your order has been placed successfully!' });
-});
+router.get('/orders-confirm/:id', protect, async (req, res) => {
+    const orderId = req.params.id;
 
+    try {
+        const order = await Order.findById(orderId)
+            .populate('user', 'name email') // Populate the user who placed the order
+            .populate('items.productId', 'name price imageUrl'); // Populate product details within items
+
+        if (!order) {
+            req.flash('error', 'Order not found.');
+            return res.status(404).redirect('/orders'); // Redirect to general orders list
+        }
+
+        // Authorization check: Ensure the order belongs to the logged-in user or the user is an Admin
+        if (order.user._id.toString() !== req.user._id.toString() && req.user.roles !== 'Admin') {
+            req.flash('error', 'You are not authorized to view this order.');
+            return res.status(403).redirect('/orders'); // Redirect to general orders list
+        }
+
+        res.render('order_confirmation', {
+            title: 'Order Confirmation',
+            message: 'Your order has been placed successfully!', // This message can be dynamic or static
+            order: order, // Pass the fetched and populated order object
+            user: req.user // Pass user for header/layout
+        });
+
+    } catch (error) {
+        console.error('Error fetching order for confirmation:', error);
+        // If it's a CastError (invalid ID format), redirect more gracefully
+        if (error.name === 'CastError') {
+            req.flash('error', 'Invalid Order ID format.');
+            return res.status(400).redirect('/orders');
+        }
+        req.flash('error', 'Failed to load order confirmation. Please try again.');
+        res.status(500).redirect('/orders'); // Redirect to orders list on server error
+    }
+});
 
 module.exports = router;

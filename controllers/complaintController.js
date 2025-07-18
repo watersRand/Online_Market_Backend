@@ -106,11 +106,11 @@ const getAllComplaints = asyncHandler(async (req, res) => {
     const complaints = await Complaint.find({})
         .populate('user', 'name email')
         .populate('vendor', 'name')
-        // .populate('order', 'totalAmount status')
+        .populate('order', 'totalPrice status')
         .populate('assignedTo', 'name email')
         .sort({ createdAt: -1 });
+    res.render('complaints/complaint_list', { title: 'All Complaints', complaints, user: req.user });
 
-    res.json(complaints);
 });
 
 // @desc    Get complaints for a specific vendor (Vendor Admin only)
@@ -130,7 +130,9 @@ const getVendorComplaints = asyncHandler(async (req, res) => {
         .populate('assignedTo', 'name email')
         .sort({ createdAt: -1 });
 
-    res.json(complaints);
+    res.render('complaints/complaint_list', { title: 'My Vendor Complaints', complaints, user: req.user, isVendorComplaints: true });
+
+    // res.json(complaints);
 });
 
 // @desc    Get logged in user's complaints
@@ -142,7 +144,8 @@ const getMyComplaints = asyncHandler(async (req, res) => {
         .populate('order', 'totalAmount status')
         .sort({ createdAt: -1 });
 
-    res.json(complaints);
+    res.render('complaints/complaint_list', { title: 'My Filed Complaints', complaints, user: req.user, isMyComplaints: true });
+
 });
 
 // @desc    Get a single complaint by ID
@@ -152,7 +155,7 @@ const getComplaintById = asyncHandler(async (req, res) => {
     const complaint = await Complaint.findById(req.params.id)
         .populate('user', 'name email')
         .populate('vendor', 'name')
-        .populate('order', 'totalAmount status')
+        .populate('order', 'totalPrice status')
         .populate('assignedTo', 'name email');
 
     if (!complaint) {
@@ -171,7 +174,22 @@ const getComplaintById = asyncHandler(async (req, res) => {
         throw new Error('Not authorized to view this complaint.');
     }
 
-    res.json(complaint);
+    // --- NEW: Fetch potential assignees if the current user has permission to assign ---
+    let assignedToUsers = [];
+    if (isAdmin || isVendorAdminForComplaint) { // Only fetch if user has admin/vendor rights
+        // Fetch users who can be assigned (e.g., Admins, Delivery Persons)
+        // Adjust this query based on your actual roles for assignees
+        assignedToUsers = await User.find({
+            $or: [
+                { roles: 'Admin' }, // Assuming 'Admin' is a role string
+                { roles: 'Delivery' } // Assuming 'Delivery' is a role string
+            ]
+        }).select('name email'); // Select only necessary fields
+    }
+
+    res.render('complaints/complaint_detail', { title: `Complaint #${complaint._id}`, complaint, user: req.user, assignedToUsers });
+
+    // res.json(complaint);
 });
 
 // @desc    Update complaint status/response/assignment (Admin/Vendor Admin)
@@ -287,8 +305,9 @@ const updateComplaint = asyncHandler(async (req, res) => {
             console.log(`Socket.IO: Emitted 'complaintAssignedToYou' to assigned user: ${newAssignedTo}`);
         }
     }
+    res.render('complaints/complaint_detail', { title: `Complaint #${complaint._id}`, complaint, user: req.user, assignedToUsers });
 
-    res.json(updatedComplaint);
+    // res.json(updatedComplaint);
 });
 
 

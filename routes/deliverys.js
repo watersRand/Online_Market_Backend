@@ -15,7 +15,7 @@ router.get('/deliveries', protect, authorize('Admin'), async (req, res) => {
             populate: { path: 'user', select: 'name' } // Populate user inside order
         })
         .populate('deliveryPerson', 'name email');
-    res.render('delivery_list', { title: 'All Deliveries', deliveries, user: req.user, isMyDeliveries: false });
+    res.render('deliveries/delivery_list', { title: 'All Deliveries', deliveries, user: req.user, isMyDeliveries: false });
 });
 
 // Render my deliveries (Delivery Person only)
@@ -27,7 +27,7 @@ router.get('/deliveries/my-deliveries', protect, authorize('DeliveryPerson', 'Ad
             populate: { path: 'user', select: 'name' }
         })
         .populate('deliveryPerson', 'name email');
-    res.render('delivery_list', { title: 'My Deliveries', deliveries, user: req.user, isMyDeliveries: true });
+    res.render('deliveries/delivery_list', { title: 'My Deliveries', deliveries, user: req.user, isMyDeliveries: true });
 });
 
 // Render assign delivery form (Admin only)
@@ -41,7 +41,7 @@ router.get('/deliveries/assign', protect, authorize('Admin'), async (req, res) =
     // Fetch users who are designated as delivery persons
     const deliveryPersons = await User.find({ isDeliveryPerson: true });
 
-    res.render('delivery_assign_form', { title: 'Assign Delivery', orders, deliveryPersons, user: req.user });
+    res.render('deliveries/delivery_form', { title: 'Assign Delivery', orders, deliveryPersons, user: req.user });
 });
 
 // Handle delivery assignment
@@ -70,7 +70,7 @@ router.get('/deliveries/:id', protect, async (req, res) => {
         return res.status(403).render('error', { title: 'Unauthorized', message: 'Not authorized to view this delivery.' });
     }
 
-    res.render('delivery_detail', { title: `Delivery for Order #${delivery.order ? delivery.order._id : 'N/A'}`, delivery, user: req.user });
+    res.render('deliveries/delivery_detail', { title: `Delivery for Order #${delivery.order ? delivery.order._id : 'N/A'}`, delivery, user: req.user });
 });
 
 // Handle delivery status update

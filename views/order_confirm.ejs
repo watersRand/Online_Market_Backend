@@ -1,9 +1,87 @@
-<div class="text-center py-16">
-    <h1 class="text-4xl font-bold text-green-600 mb-4">Order Placed Successfully!</h1>
-    <p class="text-xl text-gray-700 mb-8">
-        <%= message %>
-    </p>
-    <p class="text-gray-600 mb-8">Thank you for your purchase. You will receive an email confirmation shortly.</p>
-    <a href="/" class="btn btn-primary px-6 py-3 text-lg">Continue Shopping</a>
-    <a href="/api/users/profile" class="btn btn-secondary ml-4 px-6 py-3 text-lg">View My Orders</a>
+<div class="container mx-auto px-4 w-full max-w-3xl">
+    <h1 class="text-4xl font-bold text-green-600 mb-6 text-center">Order Confirmed!</h1>
+
+    <% if (typeof order !=='undefined' && order) { %>
+        <div class="card p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Order #<%= order._id %> Details</h2>
+            <p class="text-lg text-gray-700 mb-4">
+                <%= message %>
+            </p>
+
+            <ul class="list-disc list-inside text-gray-700 space-y-2 mb-6">
+                <li>Customer: <span class="font-medium">
+                        <%= order.user ? order.user.name : 'N/A' %> (<%= order.user ? order.user.email : 'N/A' %>)
+                    </span></li>
+                <li>Order Date: <span class="font-medium">
+                        <%= order.createdAt.toLocaleDateString() %>
+                    </span></li>
+                <li>Total Price: <span class="font-bold text-green-600 text-xl">Ksh <%= order.totalPrice.toFixed(2) %>
+                    </span></li>
+                <li>Payment Status: <span
+                        class="font-medium <%= order.paymentStatus === 'COMPLETED' ? 'text-green-600' : (order.paymentStatus === 'FAILED' ? 'text-red-600' : 'text-yellow-600') %>">
+                        <%= order.paymentStatus %>
+                    </span></li>
+                <% if (order.mpesaReceiptNumber) { %>
+                    <li>M-Pesa Receipt: <span class="font-medium">
+                            <%= order.mpesaReceiptNumber %>
+                        </span></li>
+                    <% } %>
+                        <li>Order Status: <span class="font-medium">
+                                <%= order.status %>
+                            </span></li>
+            </ul>
+
+            <h3 class="text-xl font-semibold text-gray-800 mb-3">Items:</h3>
+            <div class="space-y-2 mb-6">
+                <% order.items.forEach(item=> { %>
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                        <div class="flex items-center">
+                            <% if (item.productId && item.productId.imageUrl) { %>
+                                <img src="<%= item.productId.imageUrl %>" alt="<%= item.productId.name %>"
+                                    class="w-12 h-12 object-cover rounded-md mr-3">
+                                <% } else { %>
+                                    <img src="https://placehold.co/80x80/cccccc/333333?text=No+Image" alt="No Image"
+                                        class="w-12 h-12 object-cover rounded-md mr-3">
+                                    <% } %>
+                                        <span>
+                                            <%= item.productId ? item.productId.name : item.name %> (x<%= item.quantity
+                                                    %>)
+                                        </span>
+                        </div>
+                        <span class="font-medium">Ksh <%= (item.price * item.quantity).toFixed(2) %></span>
+                    </div>
+                    <% }); %>
+            </div>
+
+            <h3 class="text-xl font-semibold text-gray-800 mb-3">Shipping Address:</h3>
+            <ul class="list-disc list-inside text-gray-700 space-y-1 mb-6">
+                <li>Street: <span class="font-medium">
+                        <%= order.shippingAddress.street %>
+                    </span></li>
+                <li>City: <span class="font-medium">
+                        <%= order.shippingAddress.city %>
+                    </span></li>
+                <li>Postal Code: <span class="font-medium">
+                        <%= order.shippingAddress.postalCode %>
+                    </span></li>
+                <li>Country: <span class="font-medium">
+                        <%= order.shippingAddress.country %>
+                    </span></li>
+            </ul>
+
+            <div class="text-right text-2xl font-bold text-gray-800 mt-6">
+                Final Total: <span class="text-green-600">Ksh <%= order.totalPrice.toFixed(2) %></span>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <a href="/api/products/products" class="btn-primary ml-4">Continue Shopping</a>
+        </div>
+
+        <% } else { %>
+            <div class="card p-8 text-center text-gray-600">
+                <p class="text-xl mb-4">No order details found for confirmation.</p>
+                <a href="/api/products/products" class="btn-primary inline-block">Continue Shopping</a>
+            </div>
+            <% } %>
 </div>

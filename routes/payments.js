@@ -17,7 +17,7 @@ router.get('/my-payments', protect, async (req, res) => {
 router.get('/', protect, authorize('Admin'), async (req, res) => {
     const payments = await Payment.find({})
         .populate('user', 'name email')
-        .populate(`order`, 'totalAmount status')
+        .populate(`order`, 'totalPrice')
         .sort({ createdAt: -1 });
     res.render('payments/allpayments', { title: 'All Payments', payments, user: req.user });
 });
@@ -26,7 +26,7 @@ router.get('/', protect, authorize('Admin'), async (req, res) => {
 router.get('/:id', protect, async (req, res) => {
     const payment = await Payment.findById(req.params.id)
         .populate('user', 'name email')
-        .populate('order', 'totalAmount status shippingAddress'); // Populate shippingAddress for detail view
+        .populate('order', 'totalPrice status shippingAddress'); // Populate shippingAddress for detail view
 
     if (!payment) {
         return res.status(404).render('error', { title: 'Payment Not Found', message: 'Payment record not found.' });

@@ -50,7 +50,7 @@
                     <li>Order ID: <span class="font-medium">
                             <%= payment.order ? payment.order._id : 'N/A' %>
                         </span></li>
-                    <li>Order Total: <span class="font-medium">$<%= payment.order ? payment.order.totalAmount.toFixed(2)
+                    <li>Order Total: <span class="font-medium">$<%= payment.order ? payment.order.totalPrice.toFixed(2)
                                 : 'N/A' %></span></li>
                     <li>Order Status: <span class="font-medium">
                             <%= payment.order ? payment.order.status : 'N/A' %>
@@ -68,8 +68,9 @@
                         <% } %>
                 </ul>
                 <% if (payment.order) { %>
-                    <a href="/api/orders/orders/<%= payment.order._id %>"
-                        class="btn btn-secondary mt-4 inline-block">View Order
+                    <a href="/api/orders/order-confirm/<%= payment.order._id %>"
+                        class="btn btn-secondary mt-4 inline-block">View
+                        Order
                         Details</a>
                     <% } %>
             </div>

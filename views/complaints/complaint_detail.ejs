@@ -27,7 +27,7 @@
                                     <% if (complaint.order) { %>
                                         <li>Related Order: <a href="/api/orders/orders/<%= complaint.order._id %>"
                                                 class="text-indigo-600 hover:underline">#<%= complaint.order._id %></a>
-                                            (Total: $<%= complaint.order.totalAmount.toFixed(2) %>, Status: <%=
+                                            (Total: $<%= complaint.order.totalPrice.toFixed(2) %>, Status: <%=
                                                     complaint.order.status %>)</li>
                                         <% } %>
                                             <li>Assigned To: <%= complaint.assignedTo ? complaint.assignedTo.name

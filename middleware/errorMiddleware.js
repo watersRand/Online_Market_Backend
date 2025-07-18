@@ -10,28 +10,21 @@ const errorHandler = (err, req, res, next) => {
     // Determine the status code: if it's a 200 (OK) but an error occurred, set to 500 (Internal Server Error)
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
     res.status(statusCode);
-
-    // --- Determine if the request is for an API endpoint or a view ---
-    // Option 1: Check if the URL path starts with '/api'
-    const isApiRequest = req.originalUrl.startsWith('/api/');
-
-    if (isApiRequest) {
-        // If it's an API request, send a JSON response
-        res.json({
-            message: err.message,
-            stack: process.env.NODE_ENV === 'production' ? null : err.stack, // Stack trace only in development
-        });
-    } else {
-        // If it's a regular page request, render the error.ejs template
-        res.render('error', {
-            title: `Error ${statusCode}`, // Title for the EJS page
-            message: err.message, // Error message to display
-            statusCode: statusCode, // HTTP status code
-            stack: process.env.NODE_ENV === 'production' ? null : err.stack, // Stack trace for debugging in dev
-            // You might also pass req.user if your layout depends on it
-            user: res.locals.user || null // Ensure user is available if your layout needs it
-        });
+    // Log the error for server-side debugging
+    console.error(`ERROR: ${err.message}`);
+    if (process.env.NODE_ENV === 'development') {
+        console.error(err.stack); // Log stack trace only in development
     }
+
+    // --- IMPORTANT: Render the EJS error page ---
+    // Pass the error details to the EJS template
+    res.render('error', { // Assuming your error page is at views/error.ejs
+        title: `Error ${statusCode}`, // Title for the page
+        message: err.message, // The error message
+        // Only include stack trace in development for security/readability
+        error: process.env.NODE_ENV === 'development' ? err.stack : null,
+        user: req.user || { _id: null, name: 'Guest', roles: 'Customer' } // Pass user for header/layout
+    });
 };
 
 module.exports = {

@@ -6,7 +6,7 @@ const Product = require('../models/Product'); // For rendering
 const Vendor = require('../models/vendor'); // For product form
 
 
-router.get('/products', protect, async (req, res) => { // Removed populateVendor if it's redundant
+router.get('/products', async (req, res) => { // Removed populateVendor if it's redundant
     let query = {};
     const keyword = req.query.keyword || '';
     if (keyword) {

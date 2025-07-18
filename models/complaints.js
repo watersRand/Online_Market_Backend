@@ -13,7 +13,7 @@ const complaintSchema = new mongoose.Schema({
     },
     order: { // Related order (optional)
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Order',
+        ref: 'Cart',
         required: false,
     },
     subject: {

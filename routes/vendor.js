@@ -34,7 +34,7 @@ router.get('/vendors/edit/:id', protect, authorize('Admin'), async (req, res) =>
             { _id: vendor.owner }
         ]
     });
-    res.render('vendors/vendor_edit', { title: `Edit ${vendor.name}`, vendor, users: availableUsers, user: req.user });
+    res.render('vendors/vendors_edit', { title: `Edit ${vendor.name}`, vendor, users: availableUsers, user: req.user });
 });
 
 // Handle vendor update
@@ -46,7 +46,7 @@ router.get('/vendors/:id', protect, authorize('Admin'), async (req, res) => {
     if (!vendor) {
         return res.status(404).render('error', { title: 'Vendor Not Found', message: 'Vendor not found.' });
     }
-    res.render('vendors/vendors_details', { title: vendor.name, vendor, user: req.user });
+    res.render('vendors/vendor_details', { title: vendor.name, vendor, user: req.user });
 });
 
 // Handle vendor deletion
