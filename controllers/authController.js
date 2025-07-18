@@ -29,7 +29,7 @@ const registerUser = asyncHandler(async (req, res) => {
         } else {
             // For view-based submission, use flash message and redirect back to register
             req.flash('error', 'Registration failed: User with this email already exists.');
-            return res.redirect('/register'); // Redirect back to registration form
+            return res.redirect('/api/users/register'); // Redirect back to registration form
         }
     }
 
@@ -68,30 +68,18 @@ const registerUser = asyncHandler(async (req, res) => {
         }
 
         // --- IMPORTANT: Conditional Redirection/JSON Response ---
-        if (req.originalUrl.startsWith('/api/')) {
-            // For API requests, send JSON response with token
-            res.status(201).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                token: generateToken(user._id), // Generate token for API response
-                roles: user.roles, // Include roles in API response
-            });
-        } else {
-            // For view-based submission, redirect to login page with a success message
-            req.flash('success', 'Registration successful! Please log in with your new account.');
-            res.redirect('/login');
-        }
+
+        req.flash('success', 'Registration successful! Please log in with your new account.');
+        res.redirect('/api/users/login');
+
 
     } else {
         res.status(400);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Invalid user data'); // For API, throw error
-        } else {
-            req.flash('error', 'Registration failed: Invalid user data provided.');
-            res.redirect('/api/users/register'); // Redirect back to registration form
-        }
+
+        req.flash('error', 'Registration failed: Invalid user data provided.');
+        res.redirect('/api/users/register'); // Redirect back to registration form
     }
+
 });
 
 // @desc    Authenticate user & get token
@@ -113,33 +101,16 @@ const authUser = asyncHandler(async (req, res) => {
         req.flash('success', `Welcome back, ${user.name}!`);
         res.redirect('/'); // Redirect to dashboard or another appropriate page
 
-        if (req.originalUrl.startsWith('/api/')) {
-            // For API requests, send JSON response
-            res.json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                phoneNumber: user.phoneNumber,
-                roles: user.roles,
-                isDeliveryPerson: user.isDeliveryPerson,
-                vendor: user.vendor,
-                message: 'Login successful!',
-            });
-        } else {
-            // For view-based submission, redirect to dashboard or home page
-            req.flash('success', `Welcome back, ${user.name}!`);
-            res.redirect('/'); // Redirect to dashboard or another appropriate page
-        }
+        res.redirect('/'); // Redirect to dashboard or another appropriate page
+
 
     } else {
         res.status(401);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Invalid email or password'); // For API, throw error
-        } else {
-            req.flash('error', 'Login failed: Invalid email or password.');
-            res.redirect('/login'); // Redirect back to login form
-        }
+
+        req.flash('error', 'Login failed: Invalid email or password.');
+        res.redirect('/api/users/login'); // Redirect back to login form
     }
+
 });
 
 // @desc    Get user profile
@@ -150,20 +121,9 @@ const getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id);
 
     if (user) {
-        if (req.originalUrl.startsWith('/api/')) {
-            res.json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                phoneNumber: user.phoneNumber,
-                roles: user.roles,
-                isDeliveryPerson: user.isDeliveryPerson,
-                vendor: user.vendor
-            });
-        } else {
-            // For view-based request, render the profile page
-            res.render('users/profile', { title: 'My Profile', user: req.user, userProfile: user });
-        }
+
+        res.render('users/profile', { title: 'My Profile', user: req.user, userProfile: user });
+
     } else {
         res.status(404);
         if (req.originalUrl.startsWith('/api/')) {
@@ -185,24 +145,20 @@ const deleteUserProfile = asyncHandler(async (req, res) => {
 
     if (!userToDelete) {
         res.status(404);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('User not found.');
-        } else {
-            req.flash('error', 'User to delete not found.');
-            return res.redirect('/admin/users'); // Or wherever appropriate
-        }
+
+        req.flash('error', 'User to delete not found.');
+        return res.redirect('/api/users/login'); // Or wherever appropriate
+
     }
 
     // Authorization: Only the user themselves or an admin can delete the profile
     // Assuming req.user.isAdmin is set by auth middleware for admin users
     if (userToDelete._id.toString() !== req.user.id.toString() && req.user.roles !== 'Admin') { // Use roles string
         res.status(403);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Not authorized to delete this user profile.');
-        } else {
-            req.flash('error', 'You are not authorized to delete this user.');
-            return res.redirect('/admin/users'); // Or wherever appropriate
-        }
+
+        req.flash('error', 'You are not authorized to delete this user.');
+        return res.redirect('/admin/users'); // Or wherever appropriate
+
     }
 
     // Important: Disassociate vendor if this user was a vendor owner
@@ -233,25 +189,21 @@ const deleteUserProfile = asyncHandler(async (req, res) => {
         });
     }
 
-    if (req.originalUrl.startsWith('/api/')) {
-        // For API requests
-        res.status(200).json({ message: 'User removed successfully.' });
-    } else {
-        // For view-based submission
-        req.flash('success', 'User removed successfully.');
-        if (req.user.id.toString() === userIdToDelete.toString()) {
-            // If self-deletion, clear cookie and redirect to login
-            res.clearCookie('jwt'); // Assuming JWT cookie is named 'jwt'
-            if (req.session) {
-                req.session.destroy();
-            }
-            res.redirect('/login');
-        } else {
-            // If admin deleted another user, redirect to user list
-            res.redirect('/admin/users');
+
+    req.flash('success', 'User removed successfully.');
+    if (req.user.id.toString() === userIdToDelete.toString()) {
+        // If self-deletion, clear cookie and redirect to login
+        res.clearCookie('jwt'); // Assuming JWT cookie is named 'jwt'
+        if (req.session) {
+            req.session.destroy();
         }
+        res.redirect('/login');
+    } else {
+        // If admin deleted another user, redirect to user list
+        res.redirect('/admin/users');
     }
-});
+}
+);
 
 // @desc    Update a single user profile (by logged-in user or admin)
 // @route   PUT /profile (for views) or /api/users/:id (for API)
@@ -323,19 +275,14 @@ const updateUserById = asyncHandler(async (req, res) => {
         });
     }
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.status(200).json({
-            success: true,
-            data: updatedUser
-        });
+
+    req.flash('success', 'Profile updated successfully!');
+    // Redirect based on who updated it
+    if (req.user.id.toString() === userIdToUpdate.toString()) {
+        res.redirect('/api/users/profile'); // Redirect to own profile
     } else {
-        req.flash('success', 'Profile updated successfully!');
-        // Redirect based on who updated it
-        if (req.user.id.toString() === userIdToUpdate.toString()) {
-            res.redirect('/profile'); // Redirect to own profile
-        } else {
-            res.redirect('/admin/users'); // Redirect to admin user list
-        }
+        res.redirect('/admin/users'); // Redirect to admin user list
+
     }
 });
 
@@ -361,12 +308,10 @@ const logoutUser = asyncHandler(async (req, res) => {
         sameSite: 'strict', // Or 'lax'
     });
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.status(200).json({ message: 'Logged out successfully' });
-    } else {
-        req.flash('success', 'You have been logged out.');
-        res.redirect('/login'); // Redirect to login page after logout
-    }
+
+    req.flash('success', 'You have been logged out.');
+    res.redirect('/api/users/login'); // Redirect to login page after logout
+
 });
 
 
