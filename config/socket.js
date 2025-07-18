@@ -28,7 +28,7 @@ const initSocket = (httpServer) => {
 
     io = new Server(httpServer, {
         cors: {
-            origin: process.env.CLIENT_URL || '*', // Your frontend URL
+            origin: '*', // Your frontend URL
             methods: ["GET", "POST"],
             credentials: true
         }
