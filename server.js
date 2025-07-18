@@ -2,6 +2,7 @@
 
 const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config();
 const cors = require('cors');
 const connectDB = require('./config/db'); // For MongoDB connection
 const authRoutes = require('./routes/auth');
@@ -30,7 +31,6 @@ const { client } = require('./config/redis'); // Renamed for clarity
 const { initSocket, getIo } = require('./config/socket'); // Import initSocket and getIo
 
 
-dotenv.config();
 
 
 const flash = require('connect-flash');       // Import connect-flash

@@ -8,7 +8,11 @@ dotenv.config();
 const client = async () => {
     try {
         await redis.createClient({
-            url: process.env.REDIS_URL || 'redis://localhost:6379' // Use env var for URL
+            username: 'default',
+            password: process.env.REDIS_PASSWORD,
+            socket: {
+                host: process.env.REDIS_URL,
+            }
         });
 
     }
