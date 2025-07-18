@@ -16,9 +16,8 @@ let subClient; // Declare globally for error handling outside initSocket
 const initSocket = (httpServer) => {
     // Define your Redis connection options
     const redisOptions = {
-        port: process.env.REDIS_PORT || 6379,
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        password: process.env.REDIS_PASSWORD || '', // Use environment variable for password
+        host: process.env.REDIS_HOST,
+        password: process.env.REDIS_PASSWORD, // Use environment variable for password
         // Other options like `db`, `keyPrefix` etc.
     };
 
@@ -29,7 +28,7 @@ const initSocket = (httpServer) => {
 
     io = new Server(httpServer, {
         cors: {
-            origin: process.env.CLIENT_URL || 'http://localhost:3000', // Your frontend URL
+            origin: process.env.CLIENT_URL || '*', // Your frontend URL
             methods: ["GET", "POST"],
             credentials: true
         }
