@@ -1,93 +1,97 @@
+// config/socket.js
+
 const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
-// const Redis = require('ioredis');
-const { createClient } = require('ioredis');// Import createClient from 'redis' package
+const Redis = require('ioredis'); // Correct: Use ioredis
 const dotenv = require('dotenv');
-const Redis = require('ioredis');
-dotenv.config();
-
-
+dotenv.config(); // Ensure dotenv is loaded here
 
 // Store the io instance globally
 let io;
-let pubClient; // Declare globally for error handling outside initSocket
-let subClient; // Declare globally for error handling outside initSocket
+let pubClient;
+let subClient;
 
 const initSocket = (httpServer) => {
-    // Define your Redis connection options
-    const redisOptions = {
-        host: process.env.REDIS_HOST,
-        password: process.env.REDIS_PASSWORD, // Use environment variable for password
-        // Other options like `db`, `keyPrefix` etc.
-    };
+    // --- AGGRESSIVE DEBUGGING FOR REDIS CONNECTION ---
+    const redisHost = process.env.REDIS_URL; // This is actually your full host string
+    const redisPort = process.env.REDIS_PORT;
+    const redisPassword = process.env.REDIS_PASSWORD;
+    const redisTls = process.env.NODE_ENV === 'production'; // Assume TLS in production
 
-    // Create a new Redis client for publishing. Connection starts automatically.
-    pubClient = new Redis(redisOptions);
-    // Create another new Redis client for subscribing. Connection starts automatically.
-    subClient = new Redis({ ...redisOptions }); // Clone options for a separate instance
+    console.log('\n--- DEBUG: Socket.IO Redis Connection Attempt ---');
+    console.log('REDIS_URL (from env):', redisHost);
+    console.log('REDIS_PORT (from env):', redisPort);
+    console.log('REDIS_PASSWORD (from env):', redisPassword ? 'Loaded' : 'Not Loaded');
+    console.log('NODE_ENV:', process.env.NODE_ENV, 'TLS Enabled:', redisTls);
 
-    io = new Server(httpServer, {
-        cors: {
-            origin: '*', // Your frontend URL
-            methods: ["GET", "POST"],
-            credentials: true
-        }
-    });
+    // Construct the full Redis URL for ioredis
+    // ioredis prefers a URL string for complex connections (like Redis Cloud)
+    // Format: redis[s]://[[username][:password]@][host][:port][/db-number]
+    const fullRedisConnectionString = `rediss://default:${redisPassword}@${redisHost}:${redisPort}`; // Use 'rediss' for TLS/SSL
+    console.log('Constructed Full Redis Connection String for ioredis:', fullRedisConnectionString);
+
+    // Create Redis clients using the full connection string
+    // ioredis automatically handles parsing the URL for host, port, password, TLS
+    pubClient = new Redis(fullRedisConnectionString);
+    subClient = new Redis(fullRedisConnectionString); // Sub client needs its own connection
 
     // Handle Redis connection errors for both clients
     pubClient.on('error', (err) => console.error('Redis PubClient Error:', err));
     subClient.on('error', (err) => console.error('Redis SubClient Error:', err));
 
+    // Socket.IO Server Configuration
+    io = new Server(httpServer, {
+        cors: {
+            // Dynamically set origin for EJS-based apps
+            origin: (origin, callback) => {
+                const allowedOrigins = [
+                    `http://localhost:${process.env.PORT || 8080}`, // Local dev
+                ];
+                if (process.env.YOUR_APP_DOMAIN) {
+                    allowedOrigins.push(`https://${process.env.YOUR_APP_DOMAIN}`); // Production domain
+                }
+
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                } else {
+                    console.warn(`Socket.IO: Blocked origin: ${origin}`);
+                    callback(new Error('Not allowed by CORS'));
+                }
+            },
+            methods: ["GET", "POST"],
+            credentials: true
+        }
+    });
+
     // Listen for the 'ready' event to ensure both clients are fully connected
-    // before attempting to set up the adapter.
     let pubReady = false;
     let subReady = false;
 
     const setupAdapterIfReady = () => {
         if (pubReady && subReady) {
-            const { createAdapter } = require('@socket.io/redis-adapter');
             io.adapter(createAdapter(pubClient, subClient));
             console.log('Socket.IO Redis adapter configured.');
 
+            // --- Socket.IO Connection Handlers (no change needed here) ---
             io.on('connection', (socket) => {
                 console.log('A user connected:', socket.id);
 
-                // Join room for specific users (for personal notifications)
                 socket.on('joinUserRoom', (userId) => {
-                    if (userId) {
-                        socket.join(`user:${userId}`);
-                        console.log(`Socket ${socket.id} joined room: user:${userId}`);
-                    }
+                    if (userId) { socket.join(`user:${userId}`); console.log(`Socket ${socket.id} joined room: user:${userId}`); }
                 });
-
-                // Join room for Super Admin dashboard updates
                 socket.on('joinAdminRoom', () => {
-                    socket.join('admin_dashboard');
-                    console.log(`Socket ${socket.id} joined admin_dashboard room.`);
+                    socket.join('admin_dashboard'); console.log(`Socket ${socket.id} joined admin_dashboard room.`);
                 });
-
-                // Join room for Vendor Admin dashboard updates
                 socket.on('joinVendorRoom', (vendorId) => {
-                    if (vendorId) {
-                        socket.join(`vendor_dashboard:${vendorId}`);
-                        console.log(`Socket ${socket.id} joined room: vendor_dashboard:${vendorId}`);
-                    }
+                    if (vendorId) { socket.join(`vendor_dashboard:${vendorId}`); console.log(`Socket ${socket.id} joined room: vendor_dashboard:${vendorId}`); }
                 });
-
-                // Join room for specific orders (for customers tracking order status)
                 socket.on('joinOrderRoom', (orderId) => {
-                    if (orderId) {
-                        socket.join(`order:${orderId}`);
-                        console.log(`Socket ${socket.id} joined room: order:${orderId}`);
-                    }
+                    if (orderId) { socket.join(`order:${orderId}`); console.log(`Socket ${socket.id} joined room: order:${orderId}`); }
                 });
-
-                // Handle disconnection
                 socket.on('disconnect', () => {
                     console.log('User disconnected:', socket.id);
                 });
             });
-
             console.log('Socket.IO initialized and listening for connections.');
         }
     };
@@ -106,6 +110,8 @@ const initSocket = (httpServer) => {
 
     pubClient.on('end', () => console.log('Redis PubClient connection closed.'));
     subClient.on('end', () => console.log('Redis SubClient connection closed.'));
+
+    console.log('--- DEBUG: Socket.IO initSocket END ---');
 };
 
 const getIo = () => {
@@ -115,4 +121,4 @@ const getIo = () => {
     return io;
 };
 
-module.exports = { initSocket, getIo, pubClient, subClient }; // Export clients for potential closing
+module.exports = { initSocket, getIo, pubClient, subClient };

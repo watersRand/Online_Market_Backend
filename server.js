@@ -131,7 +131,7 @@ app.use(async (req, res, next) => {
 
 //CORS Configuration
 app.use(cors({
-    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*', // Support multiple origins
+    origin: '*', // Support multiple origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Include OPTIONS for pre-flight requests
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Added X-Requested-With
     credentials: true // Allow cookies to be sent (essential for sessions)
