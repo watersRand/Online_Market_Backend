@@ -1,0 +1,86 @@
+<div class="card p-6 mb-8">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4">Top Selling Products (Your Vendor)</h3>
+    <% if (dashboardData.topSellingVendorProducts && dashboardData.topSellingVendorProducts.length> 0) { %>
+        <ul class="space-y-3">
+            <% dashboardData.topSellingVendorProducts.forEach(product=> { %>
+                <li class="border-b pb-3 last:border-b-0 last:pb-0">
+                    <p class="font-medium">
+                        <%= product.productName %>
+                    </p>
+                    <p class="text-sm text-gray-600">Category: <%= product.productCategory || 'N/A' %>
+                    </p>
+                    <p class="text-sm text-gray-600">Sold: <%= product.totalQuantitySold %> units | Revenue: Ksh <%=
+                                product.totalRevenue.toFixed(2) %>
+                    </p>
+                </li>
+                <% }); %>
+        </ul>
+        <% } else { %>
+            <p class="text-gray-600">No top selling products data for your vendor.</p>
+            <% } %>
+</div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Helper to prepare chart data
+        function prepareChartData(dataArray) {
+            const labels = dataArray.map(item => item._id);
+            const counts = dataArray.map(item => item.count);
+            return { labels, counts };
+        }
+
+        // Vendor Order Status Chart
+        const vendorOrderStatusData = prepareChartData(<% - JSON.stringify(dashboardData.vendorOrderStatusDistribution) %>);
+        new Chart(document.getElementById('vendorOrderStatusChart'), {
+            type: 'pie',
+            data: {
+                labels: vendorOrderStatusData.labels,
+                datasets: [{
+                    data: vendorOrderStatusData.counts,
+                    backgroundColor: [
+                        '#4f46e5', // indigo-600
+                        '#10b981', // green-500
+                        '#f59e0b', // amber-500
+                        '#ef4444', // red-500
+                        '#6b7280'  // gray-500
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: false }
+                }
+            }
+        });
+
+        // Vendor Complaint Status Chart
+        const vendorComplaintStatusData = prepareChartData(<% - JSON.stringify(dashboardData.vendorComplaintStats) %>);
+        new Chart(document.getElementById('vendorComplaintStatusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: vendorComplaintStatusData.labels,
+                datasets: [{
+                    data: vendorComplaintStatusData.counts,
+                    backgroundColor: [
+                        '#3b82f6', // blue-500
+                        '#22c55e', // green-500
+                        '#f97316', // orange-500
+                        '#6b7280'  // gray-500
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: false }
+                }
+            }
+        });
+    });
+</script>

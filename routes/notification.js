@@ -3,7 +3,6 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Notification = require('../models/notification');
 const asyncHandler = require('express-async-handler');
-const { cacheResponse } = require('../controllers/cacheController')
 const { triggerNotifications } = require('../utils/notificationService')
 
 
@@ -12,7 +11,7 @@ router.post('/', protect, triggerNotifications)
 // @desc    Get logged in user's notifications
 // @route   GET /api/notifications
 // @access  Private
-router.get('/', protect, cacheResponse('notifications', 300), asyncHandler(async (req, res) => {
+router.get('/', protect, asyncHandler(async (req, res) => {
     const notifications = await Notification.find({ user: req.user })
         .sort({ createdAt: -1 })
         .limit(50); // Limit to recent notifications

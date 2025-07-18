@@ -1,10 +1,12 @@
+// controllers/complaintController.js
+
 const asyncHandler = require('express-async-handler');
 const Complaint = require('../models/complaints');
 const User = require('../models/User');
-const Order = require('../models/carts'); // For validating order if provided
+const Order = require('../models/carts'); // Corrected to Order model
 const Vendor = require('../models/vendor'); // For validating vendor if provided
-const { invalidateCache } = require('../controllers/cacheController');
-const { getIo } = require('../config/socket'); // Import getIo to access Socket.IO
+
+
 
 // @desc    Create a new complaint
 // @route   POST /api/complaints
@@ -50,53 +52,10 @@ const createComplaint = asyncHandler(async (req, res) => {
     });
 
     const createdComplaint = await complaint.save();
-    await invalidateCache('complaints:/api/complaints*');
 
-    const io = getIo(); // Get the Socket.IO instance
-    if (io) {
-        // 1. Notify Super Admin Dashboard
-        io.to('admin_dashboard').emit('newComplaint', {
-            complaintId: createdComplaint._id,
-            userId: user._id,
-            userName: user.name,
-            subject: createdComplaint.subject,
-            description: createdComplaint.description,
-            status: createdComplaint.status,
-            vendorName: vendorName,
-            orderId: orderId,
-            message: `New complaint filed by ${user.name}: "${createdComplaint.subject}".`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'newComplaint' to admin dashboard.`);
 
-        // 2. Notify Vendor Admin Dashboard (if vendorId is provided)
-        if (vendorId) {
-            io.to(`vendor_dashboard:${vendorId.toString()}`).emit('newVendorComplaint', {
-                complaintId: createdComplaint._id,
-                userId: user._id,
-                userName: user.name,
-                subject: createdComplaint.subject,
-                description: createdComplaint.description,
-                status: createdComplaint.status,
-                orderId: orderId,
-                message: `New complaint received for your vendor by ${user.name}: "${createdComplaint.subject}".`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'newVendorComplaint' to vendor dashboard: ${vendorId}`);
-        }
 
-        // 3. Notify the User who filed the complaint
-        io.to(`user:${user._id.toString()}`).emit('complaintConfirmation', {
-            complaintId: createdComplaint._id,
-            subject: createdComplaint.subject,
-            status: createdComplaint.status,
-            message: `Your complaint ("${createdComplaint.subject}") has been submitted successfully. We will get back to you soon.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'complaintConfirmation' to user: ${user._id}`);
-    }
-
-    res.status(201).json(createdComplaint);
+    res.redirect('/api/complaints/complaints/my-complaints');
 });
 
 // @desc    Get all complaints (Super Admin only)
@@ -110,7 +69,6 @@ const getAllComplaints = asyncHandler(async (req, res) => {
         .populate('assignedTo', 'name email')
         .sort({ createdAt: -1 });
     res.render('complaints/complaint_list', { title: 'All Complaints', complaints, user: req.user });
-
 });
 
 // @desc    Get complaints for a specific vendor (Vendor Admin only)
@@ -126,13 +84,11 @@ const getVendorComplaints = asyncHandler(async (req, res) => {
 
     const complaints = await Complaint.find({ vendor: vendorId })
         .populate('user', 'name email')
-        .populate('order', 'totalAmount status')
+        .populate('order', 'totalPrice status') // Corrected to totalPrice
         .populate('assignedTo', 'name email')
         .sort({ createdAt: -1 });
 
     res.render('complaints/complaint_list', { title: 'My Vendor Complaints', complaints, user: req.user, isVendorComplaints: true });
-
-    // res.json(complaints);
 });
 
 // @desc    Get logged in user's complaints
@@ -141,11 +97,10 @@ const getVendorComplaints = asyncHandler(async (req, res) => {
 const getMyComplaints = asyncHandler(async (req, res) => {
     const complaints = await Complaint.find({ user: req.user._id })
         .populate('vendor', 'name')
-        .populate('order', 'totalAmount status')
+        .populate('order', 'totalPrice status') // Corrected to totalPrice
         .sort({ createdAt: -1 });
 
     res.render('complaints/complaint_list', { title: 'My Filed Complaints', complaints, user: req.user, isMyComplaints: true });
-
 });
 
 // @desc    Get a single complaint by ID
@@ -164,7 +119,6 @@ const getComplaintById = asyncHandler(async (req, res) => {
     }
 
     // Authorization: User who filed, Vendor Admin related to vendor, or Super Admin
-    // Ensure req.user._id and req.user.vendor._id are being compared as strings if they are ObjectIds
     const isOwner = complaint.user._id.toString() === req.user._id.toString();
     const isVendorAdminForComplaint = req.user.vendor && complaint.vendor && complaint.vendor._id.toString() === req.user.vendor._id.toString();
     const isAdmin = req.user.isAdmin;
@@ -174,22 +128,17 @@ const getComplaintById = asyncHandler(async (req, res) => {
         throw new Error('Not authorized to view this complaint.');
     }
 
-    // --- NEW: Fetch potential assignees if the current user has permission to assign ---
     let assignedToUsers = [];
-    if (isAdmin || isVendorAdminForComplaint) { // Only fetch if user has admin/vendor rights
-        // Fetch users who can be assigned (e.g., Admins, Delivery Persons)
-        // Adjust this query based on your actual roles for assignees
+    if (isAdmin || isVendorAdminForComplaint) {
         assignedToUsers = await User.find({
             $or: [
-                { roles: 'Admin' }, // Assuming 'Admin' is a role string
-                { roles: 'Delivery' } // Assuming 'Delivery' is a role string
+                { roles: 'Admin' },
+                { roles: 'Delivery' }
             ]
-        }).select('name email'); // Select only necessary fields
+        }).select('name email');
     }
 
     res.render('complaints/complaint_detail', { title: `Complaint #${complaint._id}`, complaint, user: req.user, assignedToUsers });
-
-    // res.json(complaint);
 });
 
 // @desc    Update complaint status/response/assignment (Admin/Vendor Admin)
@@ -198,16 +147,16 @@ const getComplaintById = asyncHandler(async (req, res) => {
 const updateComplaint = asyncHandler(async (req, res) => {
     const { status, response, assignedTo } = req.body;
     const complaint = await Complaint.findById(req.params.id)
-        .populate('user', 'name email') // Populate user to notify customer
-        .populate('vendor', 'name') // Populate vendor to notify vendor admin
-        .populate('assignedTo', 'name email'); // Populate assignedTo to notify them
+        .populate('user', 'name email')
+        .populate('vendor', 'name')
+        .populate('assignedTo', 'name email');
 
     if (!complaint) {
         res.status(404);
         throw new Error('Complaint not found.');
     }
 
-    const oldStatus = complaint.status; // Store old status for notification
+    const oldStatus = complaint.status;
 
     // Authorization: Super Admin or Vendor Admin of the related vendor
     const isVendorAdminForComplaint = req.user.vendor && complaint.vendor && complaint.vendor._id.toString() === req.user.vendor._id.toString();
@@ -226,90 +175,22 @@ const updateComplaint = asyncHandler(async (req, res) => {
     const oldAssignedTo = complaint.assignedTo ? complaint.assignedTo._id.toString() : null;
     if (assignedTo) {
         const assignedUser = await User.findById(assignedTo);
-        // You might want to restrict assignment to users with specific roles (e.g., support, admin)
-        // Ensure the assigned user is not the same as the one already assigned to avoid unnecessary notifications
-        if (!assignedUser || (!assignedUser.roles.includes('admin') && !assignedUser.roles.includes('support') && !assignedUser.isDeliveryPerson)) { // Example roles for assignment
+        if (!assignedUser || (!assignedUser.roles.includes('Admin') && !assignedUser.roles.includes('Support') && !assignedUser.isDeliveryPerson)) { // Example roles for assignment
             res.status(400);
             throw new Error('Invalid user to assign complaint to (must be Admin/Support/Delivery Person).');
         }
         complaint.assignedTo = assignedTo;
     }
 
-
     if (status) complaint.status = status;
     if (response) complaint.response = response;
 
     const updatedComplaint = await complaint.save();
-    await invalidateCache([
-        `complaints:/api/complaints/${req.params.id}`,
-        'complaints:/api/complaints*'
-    ]);
 
-    const io = getIo(); // Get the Socket.IO instance
-    if (io) {
-        // 1. Notify Super Admin Dashboard
-        io.to('admin_dashboard').emit('complaintUpdated', {
-            complaintId: updatedComplaint._id,
-            userId: updatedComplaint.user._id,
-            userName: updatedComplaint.user.name,
-            subject: updatedComplaint.subject,
-            oldStatus: oldStatus,
-            newStatus: updatedComplaint.status,
-            response: updatedComplaint.response,
-            assignedToName: updatedComplaint.assignedTo ? updatedComplaint.assignedTo.name : null,
-            message: `Complaint #${updatedComplaint._id} (${updatedComplaint.subject}) updated. Status: ${oldStatus} -> ${updatedComplaint.status}.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'complaintUpdated' to admin dashboard.`);
 
-        // 2. Notify Vendor Admin Dashboard (if a vendor is associated)
-        if (updatedComplaint.vendor) {
-            io.to(`vendor_dashboard:${updatedComplaint.vendor._id.toString()}`).emit('vendorComplaintUpdated', {
-                complaintId: updatedComplaint._id,
-                userId: updatedComplaint.user._id,
-                userName: updatedComplaint.user.name,
-                subject: updatedComplaint.subject,
-                oldStatus: oldStatus,
-                newStatus: updatedComplaint.status,
-                response: updatedComplaint.response,
-                assignedToName: updatedComplaint.assignedTo ? updatedComplaint.assignedTo.name : null,
-                message: `Complaint for your vendor (${updatedComplaint.subject}) updated. Status: ${oldStatus} -> ${updatedComplaint.status}.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'vendorComplaintUpdated' to vendor dashboard: ${updatedComplaint.vendor._id}`);
-        }
 
-        // 3. Notify the User who filed the complaint
-        io.to(`user:${updatedComplaint.user._id.toString()}`).emit('yourComplaintUpdated', {
-            complaintId: updatedComplaint._id,
-            subject: updatedComplaint.subject,
-            oldStatus: oldStatus,
-            newStatus: updatedComplaint.status,
-            response: updatedComplaint.response,
-            message: `Your complaint ("${updatedComplaint.subject}") status changed to: **${updatedComplaint.status}**.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'yourComplaintUpdated' to user: ${updatedComplaint.user._id}`);
-
-        // 4. Notify the newly assigned user (if assignment changed)
-        const newAssignedTo = updatedComplaint.assignedTo ? updatedComplaint.assignedTo._id.toString() : null;
-        if (newAssignedTo && newAssignedTo !== oldAssignedTo) {
-            io.to(`user:${newAssignedTo}`).emit('complaintAssignedToYou', {
-                complaintId: updatedComplaint._id,
-                subject: updatedComplaint.subject,
-                userWhoFiled: updatedComplaint.user.name,
-                status: updatedComplaint.status,
-                message: `A new complaint ("${updatedComplaint.subject}") has been assigned to you.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'complaintAssignedToYou' to assigned user: ${newAssignedTo}`);
-        }
-    }
     res.render('complaints/complaint_detail', { title: `Complaint #${complaint._id}`, complaint, user: req.user, assignedToUsers });
-
-    // res.json(updatedComplaint);
 });
-
 
 module.exports = {
     createComplaint,

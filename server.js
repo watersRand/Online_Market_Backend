@@ -26,9 +26,8 @@ const adminRoutes = require('./routes/admin');
 const complaintRoutes = require('./routes/complaints');
 
 const http = require('http');
-// Importing the Redis client and Socket.IO initializer directly
-const { client } = require('./config/redis'); // Renamed for clarity
-const { initSocket, getIo } = require('./config/socket'); // Import initSocket and getIo
+
+
 
 
 
@@ -41,9 +40,7 @@ const app = express();
 // Create an HTTP server from your Express app
 const httpServer = http.createServer(app);
 
-// Initialize Socket.IO with the HTTP server
-// Ensure initSocket handles potential errors or returns the io instance if needed
-initSocket(httpServer);
+
 
 
 // --- Method Override for PUT/DELETE forms ---
@@ -172,13 +169,7 @@ const startServer = async () => {
         await connectDB();
         console.log('Database Connected Successfully! ✅');
 
-        // Connect to Redis
-        await client(); // Use the renamed client
-        console.log('Redis Connected Successfully! 🚀');
 
-        // This function will set up the Redis adapter and event listeners
-        initSocket(httpServer);
-        console.log('Socket.IO Initialized! ⚡');
 
 
         // Start the HTTP server (which Express app is attached to)
@@ -197,7 +188,7 @@ const startServer = async () => {
 };
 
 // Export the startServer function and httpServer for testing purposes
-module.exports = { startServer, httpServer, app, getIo };
+module.exports = { startServer, httpServer, app };
 
 // Call the function to start the server if not being imported for testing
 if (process.env.NODE_ENV !== 'test') {

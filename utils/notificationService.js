@@ -1,8 +1,7 @@
 const User = require('../models/User');
 const mongoose = require('mongoose')
 const Notification = require('../models/notification');
-const redisPubSubClient = require('../config/redis'); // Your Redis Pub/Sub client
-const { getIo } = require('../config/socket'); // NEW: Import Socket.IO instance
+
 
 // Initialize Africa's Talking
 const AfricasTalking = require('africastalking')({
@@ -46,23 +45,7 @@ const createNotification = async (userId, message, type, referenceId = null) => 
  * @param {string} [payload.referenceId] - Optional: ID of the related entity.
  * @param {string} [payload.notificationId] - ID of the persistent notification.
  */
-const emitInAppNotification = async (payload) => {
-    const io = getIo(); // Get the initialized Socket.IO instance
 
-    if (!io) {
-        console.warn('Socket.IO not initialized. Real-time notification will not be sent.');
-        return;
-    }
-
-    try {
-        // Emit the notification to a specific user's room (or ID)
-        // Ensure your Socket.IO connection handling assigns users to rooms or maps user IDs to socket IDs
-        io.to(payload.userId).emit('notification', payload);
-        console.log(`Emitted in-app notification to Socket.IO for user: ${payload.userId}`);
-    } catch (error) {
-        console.error('Error emitting in-app notification via Socket.IO:', error);
-    }
-};
 
 /**
  * Sends an SMS notification using Africa's Talking.
@@ -147,21 +130,7 @@ const triggerNotifications = async (req, res) => {
         }
 
 
-        // 2. Emit for real-time in-app notification
-        // Use a separate try-catch for non-critical operations, or log and continue
-        try {
-            await emitInAppNotification({
-                userId: userId.toString(), // Ensure userId is string for emit
-                message,
-                type,
-                referenceId: referenceId ? referenceId.toString() : null, // Ensure referenceId is string or null
-                notificationId: notification._id.toString(), // Convert ObjectId to string
-                createdAt: notification.createdAt.toISOString()
-            });
-        } catch (inAppError) {
-            console.error('Failed to emit in-app notification:', inAppError);
-            // This is often not a critical failure, so we just log and continue.
-        }
+
 
 
         // 3. Send SMS (if phone number provided or fetched)
@@ -210,6 +179,5 @@ const triggerNotifications = async (req, res) => {
 module.exports = {
     triggerNotifications,
     createNotification,
-    emitInAppNotification, // Export for testing
     sendSMSNotification
 };

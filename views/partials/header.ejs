@@ -9,7 +9,7 @@
                 </li>
                 <li><a href="/api/orders/cart" class="text-gray-700 hover:text-indigo-600 font-medium">Cart (<%= typeof
                             cartItemCount !=='undefined' ? cartItemCount : 0 %>)</a></li>
-                <% if (typeof user && user._id) { %>
+                <% if (typeof user._id && user) { %>
                     <li><a href="/api/users/profile" class="text-gray-700 hover:text-indigo-600 font-medium">Profile</a>
                     </li>
                     <li><a href="/api/users/logout" class="text-gray-700 hover:text-indigo-600 font-medium">Logout</a>

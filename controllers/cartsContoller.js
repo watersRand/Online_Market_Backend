@@ -2,15 +2,14 @@
 const Cart = require('../models/carts');
 const Product = require('../models/Product');
 const asyncHandler = require('express-async-handler');
-const { invalidateCache } = require('./cacheController');
-const { getIo } = require('../config/socket');
+
 
 // Helper to get or create a cart based on user or session (with merging)
 const getOrCreateCart = async (req) => {
     let cart;
     let userCart = null;
     let sessionCart = null;
-    const io = getIo(); // Get Socket.IO instance for potential notifications
+    // REMOVED: const io = getIo(); // Socket.IO instance for potential notifications
 
     console.log('\n--- DEBUG: getOrCreateCart START ---');
     console.log('req.user (ID):', req.user ? req.user._id : 'Not authenticated');
@@ -49,21 +48,9 @@ const getOrCreateCart = async (req) => {
 
         await userCart.save();
         await Cart.deleteOne({ _id: sessionCart._id }); // Delete the old session cart
-        await invalidateCache([
-            `carts:/api/cart/${userCart._id}`,
-            `carts:/api/cart?userId=${req.user._id}`,
-            `carts:/api/cart?sessionId=${sessionId}`, // Invalidate old session cart cache
-            'carts:/api/carts*'
-        ]);
+
         console.log('Session cart merged and deleted. User cart updated.');
-        if (io && req.user) {
-            io.to(`user:${req.user._id.toString()}`).emit('cartUpdated', {
-                cartId: userCart._id,
-                items: userCart.items,
-                totalPrice: userCart.totalPrice,
-                message: 'Your anonymous cart items have been merged!'
-            });
-        }
+
         cart = userCart;
 
     } else if (userCart) {
@@ -79,21 +66,9 @@ const getOrCreateCart = async (req) => {
             sessionCart.userId = req.user._id;
             sessionCart.sessionId = undefined; // Remove sessionId as it's now a user cart
             await sessionCart.save();
-            await invalidateCache([
-                `carts:/api/cart/${sessionCart._id}`,
-                `carts:/api/cart?userId=${req.user._id}`,
-                `carts:/api/cart?sessionId=${sessionId}`,
-                'carts:/api/carts*'
-            ]);
-            console('Session cart converted to user cart.');
-            if (io && req.user) {
-                io.to(`user:${req.user._id.toString()}`).emit('cartUpdated', {
-                    cartId: sessionCart._id,
-                    items: sessionCart.items,
-                    totalPrice: sessionCart.totalPrice,
-                    message: 'Your cart has been linked to your account!'
-                });
-            }
+
+            console.log('Session cart converted to user cart.');
+
         }
         cart = sessionCart;
 
@@ -114,16 +89,11 @@ const getOrCreateCart = async (req) => {
 
         try {
             await cart.save();
-            await invalidateCache([
-                'carts:/api/cart',
-                'carts:/api/carts*'
-            ]);
+
             console.log(`New cart created successfully! ID: ${cart._id}, for ${req.user ? 'user ' + req.user._id : 'session ' + newCartData.sessionId}`);
         } catch (error) {
             if (error.code === 11000) {
                 console.warn('Race condition detected creating cart, retrying find...');
-                // This can happen if two requests try to create the cart simultaneously
-                // after the initial findOne returned null.
                 if (req.user && req.user._id) {
                     cart = await Cart.findOne({ userId: req.user._id });
                 } else {
@@ -143,31 +113,8 @@ const getOrCreateCart = async (req) => {
     console.log('--- DEBUG: getOrCreateCart END. Returning cart ID:', cart._id, '---');
     return cart;
 };
-;
 
-// Helper function to emit cart updates via Socket.IO
-const emitCartUpdate = (cart, io) => {
-    if (!io) return;
 
-    if (cart.userId) {
-        io.to(`user:${cart.userId.toString()}`).emit('cartUpdated', {
-            cartId: cart._id,
-            items: cart.items,
-            totalPrice: cart.totalPrice,
-            message: 'Your cart has been updated.'
-        });
-    } else if (cart.sessionId) {
-        // If frontend subscribes to a room like `session:${sessionId}`, then uncomment below:
-        // io.to(`session:${cart.sessionId}`).emit('cartUpdated', { ... });
-    }
-
-    io.to('admin_dashboard').emit('adminCartActivity', {
-        cartId: cart._id,
-        userId: cart.userId ? cart.userId.toString() : 'anonymous',
-        action: 'cart_modified',
-        timestamp: new Date()
-    });
-};
 
 // @desc    Get user/session cart
 // @route   GET /cart (for views) or /api/cart (for API - but will render EJS)
@@ -203,12 +150,10 @@ exports.addItemToCart = asyncHandler(async (req, res) => {
     const product = await Product.findById(productId);
     if (!product) {
         res.status(404);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Product not found.');
-        } else {
-            req.flash('error', 'Product not found. Cannot add to cart.');
-            return res.redirect('/products');
-        }
+
+        req.flash('error', 'Product not found. Cannot add to cart.');
+        return res.redirect('/api/products/products');
+
     }
 
     const cart = await getOrCreateCart(req);
@@ -239,23 +184,19 @@ exports.addItemToCart = asyncHandler(async (req, res) => {
             res.status(400);
             const remainingStock = product.countInStock - existingItem.quantity;
             const errorMessage = `Cannot add ${quantity} units. Total cart quantity (${newQuantity}) would exceed available stock (${product.countInStock}). You can add up to ${remainingStock} more units.`;
-            if (req.originalUrl.startsWith('/api/')) {
-                throw new Error(errorMessage);
-            } else {
-                req.flash('error', errorMessage);
-                return res.redirect('/cart');
-            }
+
+            req.flash('error', errorMessage);
+            return res.redirect('/api/orders/cart');
+
         }
         existingItem.quantity = newQuantity;
     } else {
         if (product.countInStock < quantity) {
             res.status(400);
-            if (req.originalUrl.startsWith('/api/')) {
-                throw new Error(`Not enough stock for ${product.name}. Available: ${product.countInStock}`);
-            } else {
-                req.flash('error', `Not enough stock for "${product.name}". Available: ${product.countInStock}.`);
-                return res.redirect('/products');
-            }
+
+            req.flash('error', `Not enough stock for "${product.name}". Available: ${product.countInStock}.`);
+            return res.redirect('/api/products/products');
+
         }
         cart.items.push({
             productId: product._id,
@@ -269,21 +210,11 @@ exports.addItemToCart = asyncHandler(async (req, res) => {
     await cart.save();
     console.log('Cart saved after addItemToCart. Cart ID:', cart._id);
 
-    await invalidateCache([
-        `carts:/api/cart/${cart._id}`,
-        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
-        'carts:/api/carts*'
-    ]);
 
-    const io = getIo();
-    emitCartUpdate(cart, io);
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.status(200).json({ success: true, data: cart, message: `"${product.name}" added to cart.` });
-    } else {
-        req.flash('success', `"${product.name}" added to cart!`);
-        res.redirect('/cart');
-    }
+    req.flash('success', `"${product.name}" added to cart!`);
+    res.redirect('/api/orders/cart');
+
     console.log('--- DEBUG: addItemToCart Controller END ---');
 });
 
@@ -329,51 +260,33 @@ exports.updateCartItemQuantity = asyncHandler(async (req, res) => {
         const product = await Product.findById(productId);
         if (!product) {
             res.status(404);
-            if (req.originalUrl.startsWith('/api/')) {
-                throw new Error('Product not found in system (item was in cart, but product disappeared).');
-            } else {
-                req.flash('error', 'Product associated with cart item not found.');
-                return res.redirect('/cart');
-            }
+
+            req.flash('error', 'Product associated with cart item not found.');
+            return res.redirect('/api/orders/cart');
+
         }
         // Validate stock for the TARGET quantity
         console.log('DEBUG: Product stock:', product.countInStock, 'Target quantity:', quantity);
         if (product.countInStock < quantity) {
             res.status(400);
             const errorMessage = `Cannot set quantity to ${quantity}. Only ${product.countInStock} available for ${product.name}.`;
-            if (req.originalUrl.startsWith('/api/')) {
-                throw new Error(errorMessage);
-            } else {
-                req.flash('error', errorMessage);
-                return res.redirect('/cart');
-            }
+
+            req.flash('error', errorMessage);
+            return res.redirect('/api/orders/cart');
         }
+
         cart.items[itemIndex].quantity = quantity;
-        // Optionally update name, price, imageUrl if product details might have changed
-        // cart.items[itemIndex].name = product.name;
-        // cart.items[itemIndex].price = product.price;
-        // cart.items[itemIndex].imageUrl = product.imageUrl;
     }
 
     console.log('DEBUG: Cart items before save:', JSON.stringify(cart.items.toObject(), null, 2));
     await cart.save();
     console.log('DEBUG: Cart saved successfully after updateCartItemQuantity. Cart ID:', cart._id);
 
-    await invalidateCache([
-        `carts:/api/cart/${cart._id}`,
-        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
-        'carts:/api/carts*'
-    ]);
 
-    const io = getIo();
-    emitCartUpdate(cart, io);
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.status(200).json({ success: true, data: cart, message: 'Cart item quantity updated.' });
-    } else {
-        req.flash('success', 'Cart item quantity updated.');
-        res.redirect('/cart');
-    }
+    req.flash('success', 'Cart item quantity updated.');
+    res.redirect('/api/orders/cart');
+
     console.log('--- DEBUG: updateCartItemQuantity Controller END ---');
 });
 
@@ -394,33 +307,21 @@ exports.removeCartItem = asyncHandler(async (req, res) => {
 
     if (cart.items.length === initialLength) {
         res.status(404);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Item not found in cart.');
-        } else {
-            req.flash('error', 'Item not found in cart.');
-            return res.redirect('/cart');
-        }
+
+        req.flash('error', 'Item not found in cart.');
+        return res.redirect('/api/orders/cart');
     }
+
 
     console.log('DEBUG: Cart items before save (after filter):', JSON.stringify(cart.items.toObject(), null, 2));
     await cart.save();
     console.log('DEBUG: Cart saved successfully after removeCartItem. Cart ID:', cart._id);
 
-    await invalidateCache([
-        `carts:/api/cart/${cart._id}`,
-        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
-        'carts:/api/carts*'
-    ]);
 
-    const io = getIo();
-    emitCartUpdate(cart, io);
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.status(200).json({ success: true, data: cart, message: 'Item removed from cart.' });
-    } else {
-        req.flash('success', 'Item removed from cart.');
-        res.redirect('/cart');
-    }
+    req.flash('success', 'Item removed from cart.');
+    res.redirect('/api/orders/cart');
+
     console.log('--- DEBUG: removeCartItem Controller END ---');
 });
 
@@ -433,13 +334,10 @@ exports.clearCart = asyncHandler(async (req, res) => {
     console.log('Cart retrieved/created for clearCart. ID:', cart._id);
 
     if (cart.items.length === 0) {
-        console.log('DEBUG: Cart already empty, skipping clear.');
-        if (req.originalUrl.startsWith('/api/')) {
-            return res.status(200).json({ success: true, data: cart, message: 'Cart already empty.' });
-        } else {
-            req.flash('info', 'Your cart is already empty.');
-            return res.redirect('/cart');
-        }
+
+        req.flash('info', 'Your cart is already empty.');
+        return res.redirect('/api/orders/cart');
+
     }
 
     cart.items = [];
@@ -448,20 +346,14 @@ exports.clearCart = asyncHandler(async (req, res) => {
     await cart.save();
     console.log('DEBUG: Cart saved successfully after clearCart. Cart ID:', cart._id);
 
-    await invalidateCache([
-        `carts:/api/cart/${cart._id}`,
-        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
-        'carts:/api/carts*'
-    ]);
 
-    const io = getIo();
-    emitCartUpdate(cart, io);
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.status(200).json({ success: true, data: cart, message: 'Your cart has been cleared.' });
-    } else {
-        req.flash('success', 'Your cart has been cleared.');
-        res.redirect('/cart');
-    }
+    // REMOVED: const io = getIo();
+    // REMOVED: emitCartUpdate(cart, io);
+
+
+    req.flash('success', 'Your cart has been cleared.');
+    res.redirect('/api/orders/cart');
+
     console.log('--- DEBUG: clearCart Controller END ---');
 });

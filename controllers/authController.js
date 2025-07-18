@@ -4,8 +4,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const asyncHandler = require('express-async-handler');
-const { invalidateCache } = require('../controllers/cacheController');
-const { getIo } = require('../config/socket'); // Import getIo to access Socket.IO
+
 
 // Helper to generate JWT token (for API responses or direct login)
 const generateToken = (id) => {
@@ -44,42 +43,19 @@ const registerUser = asyncHandler(async (req, res) => {
         roles: userRole, // Use the determined single role string
         isDeliveryPerson: isDeliveryPerson || false // Default to false if not provided
     });
-    await invalidateCache('auth:/api/auth*');
+
 
     if (user) {
-        const io = getIo(); // Get the Socket.IO instance
-        if (io) {
-            // Notify admin dashboard about new user registration
-            io.to('admin_dashboard').emit('newUserRegistered', {
-                userId: user._id,
-                name: user.name,
-                email: user.email,
-                roles: user.roles,
-                message: `New user "${user.name}" (${user.email}) has registered.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'newUserRegistered' for admin dashboard.`);
 
-            io.to(`user:${user._id.toString()}`).emit('welcomeMessage', {
-                message: `Welcome, ${user.name}! Your account has been successfully created.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'welcomeMessage' to new user: ${user._id}`);
-        }
-
-        // --- IMPORTANT: Conditional Redirection/JSON Response ---
 
         req.flash('success', 'Registration successful! Please log in with your new account.');
         res.redirect('/api/users/login');
 
-
     } else {
         res.status(400);
-
         req.flash('error', 'Registration failed: Invalid user data provided.');
         res.redirect('/api/users/register'); // Redirect back to registration form
     }
-
 });
 
 // @desc    Authenticate user & get token
@@ -94,23 +70,18 @@ const authUser = asyncHandler(async (req, res) => {
         // Set JWT token as an HTTP-only cookie
         res.cookie('jwt', generateToken(user._id), {
             httpOnly: true,
-            secure: false, // Use secure cookies in production
+            secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
             sameSite: 'strict', // Adjust as needed: 'strict', 'lax', 'none'
             maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         });
         req.flash('success', `Welcome back, ${user.name}!`);
         res.redirect('/'); // Redirect to dashboard or another appropriate page
 
-        res.redirect('/'); // Redirect to dashboard or another appropriate page
-
-
     } else {
         res.status(401);
-
         req.flash('error', 'Login failed: Invalid email or password.');
         res.redirect('/api/users/login'); // Redirect back to login form
     }
-
 });
 
 // @desc    Get user profile
@@ -121,17 +92,13 @@ const getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id);
 
     if (user) {
-
         res.render('users/profile', { title: 'My Profile', user: req.user, userProfile: user });
-
     } else {
         res.status(404);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('User not found');
-        } else {
-            req.flash('error', 'User profile not found.');
-            res.redirect('/'); // Or redirect to login
-        }
+
+        req.flash('error', 'User profile not found.');
+        res.redirect('/api/users/login'); // Or redirect to login
+
     }
 });
 
@@ -145,49 +112,25 @@ const deleteUserProfile = asyncHandler(async (req, res) => {
 
     if (!userToDelete) {
         res.status(404);
-
         req.flash('error', 'User to delete not found.');
         return res.redirect('/api/users/login'); // Or wherever appropriate
-
     }
 
     // Authorization: Only the user themselves or an admin can delete the profile
-    // Assuming req.user.isAdmin is set by auth middleware for admin users
-    if (userToDelete._id.toString() !== req.user.id.toString() && req.user.roles !== 'Admin') { // Use roles string
+    if (userToDelete._id.toString() !== req.user.id.toString() && req.user.roles !== 'Admin') {
         res.status(403);
-
         req.flash('error', 'You are not authorized to delete this user.');
         return res.redirect('/admin/users'); // Or wherever appropriate
-
     }
 
     // Important: Disassociate vendor if this user was a vendor owner
-    // Use string comparison for roles
     if (userToDelete.roles === 'Vendor' && userToDelete.vendor) {
         const Vendor = require('../models/vendor'); // Import Vendor model here to avoid circular dependency
         await Vendor.findOneAndUpdate({ owner: userToDelete._id }, { $unset: { owner: 1 } });
     }
 
     await User.deleteOne({ _id: userIdToDelete });
-    await invalidateCache([
-        `auth:/api/auth/${userIdToDelete}`,
-        'auth:/api/auth*'
-    ]);
 
-    const io = getIo();
-    if (io) {
-        io.to('admin_dashboard').emit('userDeleted', {
-            userId: userIdToDelete,
-            name: userToDelete.name,
-            email: userToDelete.email,
-            message: `User "${userToDelete.name}" (${userToDelete.email}) has been deleted.`,
-            timestamp: new Date()
-        });
-        io.to(`user:${userIdToDelete.toString()}`).emit('accountDeleted', {
-            message: `Your account has been deleted. You will be logged out.`,
-            timestamp: new Date()
-        });
-    }
 
 
     req.flash('success', 'User removed successfully.');
@@ -197,13 +140,12 @@ const deleteUserProfile = asyncHandler(async (req, res) => {
         if (req.session) {
             req.session.destroy();
         }
-        res.redirect('/login');
+        res.redirect('/api/users/login');
     } else {
         // If admin deleted another user, redirect to user list
         res.redirect('/admin/users');
     }
-}
-);
+});
 
 // @desc    Update a single user profile (by logged-in user or admin)
 // @route   PUT /profile (for views) or /api/users/:id (for API)
@@ -226,13 +168,13 @@ const updateUserById = asyncHandler(async (req, res) => {
     }
 
     // Authorization: Only the user themselves or an admin can update
-    if (user._id.toString() !== req.user.id.toString() && req.user.roles !== 'Admin') { // Use roles string
+    if (user._id.toString() !== req.user.id.toString() && req.user.roles !== 'Admin') {
         res.status(403);
         if (req.originalUrl.startsWith('/api/')) {
             throw new Error('Not authorized to update this user profile.');
         } else {
             req.flash('error', 'You are not authorized to update this user.');
-            return res.redirect('/profile'); // Or back to admin list
+            return res.redirect('/api/users/profile'); // Or back to admin list
         }
     }
 
@@ -241,7 +183,7 @@ const updateUserById = asyncHandler(async (req, res) => {
     user.phoneNumber = phoneNumber || user.phoneNumber;
 
     // Only admins can update roles and isDeliveryPerson
-    if (req.user.roles === 'Admin') { // Use roles string
+    if (req.user.roles === 'Admin') {
         if (roles && ['Vendor', 'Delivery', 'Customer', 'Admin'].includes(roles)) {
             user.roles = roles;
         }
@@ -251,29 +193,7 @@ const updateUserById = asyncHandler(async (req, res) => {
     }
 
     const updatedUser = await user.save();
-    await invalidateCache([
-        `auth:/api/auth/${updatedUser._id}`,
-        'auth:/api/auth*'
-    ]);
 
-    const io = getIo();
-    if (io) {
-        io.to('admin_dashboard').emit('userUpdated', {
-            userId: updatedUser._id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            roles: updatedUser.roles,
-            message: `User "${updatedUser.name}" (${updatedUser.email}) profile updated.`,
-            timestamp: new Date()
-        });
-        io.to(`user:${updatedUser._id.toString()}`).emit('profileUpdated', {
-            userId: updatedUser._id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            message: `Your profile details have been updated.`,
-            timestamp: new Date()
-        });
-    }
 
 
     req.flash('success', 'Profile updated successfully!');
@@ -282,7 +202,6 @@ const updateUserById = asyncHandler(async (req, res) => {
         res.redirect('/api/users/profile'); // Redirect to own profile
     } else {
         res.redirect('/admin/users'); // Redirect to admin user list
-
     }
 });
 
@@ -290,16 +209,6 @@ const updateUserById = asyncHandler(async (req, res) => {
 // @route   GET /logout (for views) or /api/users/logout (for API)
 // @access  Private
 const logoutUser = asyncHandler(async (req, res) => {
-    const io = getIo();
-    const userId = req.user ? req.user.id : null;
-
-    if (userId && io) {
-        io.to(`user:${userId.toString()}`).emit('loggedOut', {
-            message: 'You have been successfully logged out.',
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'loggedOut' to user: ${userId}`);
-    }
 
     res.cookie('jwt', '', { // Clear the 'jwt' cookie
         httpOnly: true,
@@ -308,10 +217,8 @@ const logoutUser = asyncHandler(async (req, res) => {
         sameSite: 'strict', // Or 'lax'
     });
 
-
     req.flash('success', 'You have been logged out.');
     res.redirect('/api/users/login'); // Redirect to login page after logout
-
 });
 
 

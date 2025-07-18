@@ -4,7 +4,6 @@ const Product = require('../models/Product');
 const Order = require('../models/carts'); // Assuming Order model is 'carts'
 const Complaint = require('../models/complaints');
 const Delivery = require('../models/delivery');
-const { getIo } = require('../config/socket'); // Import getIo for Socket.IO
 
 // @desc    Get dashboard analytics for Super Admin
 // @route   GET /api/admin/dashboard/super
@@ -89,15 +88,7 @@ const getSuperAdminDashboard = asyncHandler(async (req, res) => {
     };
 
     // Emit initial dashboard data to the requesting admin's socket or to the admin dashboard room
-    const io = getIo();
-    if (io) {
-        // You might want to emit this to the specific socket that made the request,
-        // or just ensure other controllers handle real-time updates.
-        // For an initial load, sending to the specific socket (if you have its ID) is better.
-        // For now, we'll assume the primary real-time updates come from other controllers.
-        // This function primarily serves the HTTP request.
-        console.log('Admin dashboard data fetched via HTTP. Real-time updates handled by other controllers.');
-    }
+
 
     res.json(dashboardData);
 });
@@ -206,14 +197,6 @@ const getVendorAdminDashboard = asyncHandler(async (req, res) => {
         vendorComplaintStats,
         topSellingVendorProducts
     };
-
-    const io = getIo();
-    if (io) {
-        // As with Super Admin, this primarily serves the HTTP request.
-        // Real-time updates for specific vendor dashboard will come from other controllers
-        // (e.g., product updates, order updates related to this vendor).
-        console.log(`Vendor dashboard data fetched via HTTP for vendor ID: ${vendorId}.`);
-    }
 
     res.json(dashboardData);
 });

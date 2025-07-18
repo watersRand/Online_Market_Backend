@@ -1,9 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const Delivery = require('../models/delivery');
-const Order = require('../models/carts'); // Assuming 'orders' is your Order model, not 'carts' if it's the final order.
+const Order = require('../models/carts'); // Corrected to Order model
 const User = require('../models/User'); // To check if user is a delivery person
-const { invalidateCache } = require('../controllers/cacheController');
-const { getIo } = require('../config/socket'); // Import getIo to access Socket.IO
+
 
 // @desc    Assign an order to a delivery person
 // @route   POST /api/deliveries/assign
@@ -49,52 +48,13 @@ const assignDelivery = asyncHandler(async (req, res) => {
     });
 
     const createdDelivery = await delivery.save();
-    await invalidateCache('deliveries:/api/deliveries*');
 
     // Optionally update the order status as well
     order.status = 'assigned-for-delivery';
     order.delivery = createdDelivery._id; // Link delivery to order
     await order.save();
-    await invalidateCache(`orders:/api/orders/${orderId}`); // Invalidate order cache
 
-    const io = getIo(); // Get the Socket.IO instance
-    if (io) {
-        // 1. Notify the assigned delivery person
-        io.to(`user:${deliveryPersonId.toString()}`).emit('newDeliveryAssignment', {
-            deliveryId: createdDelivery._id,
-            orderId: order._id,
-            customerInfo: { name: order.user.name, address: order.shippingAddress }, // Assuming order.user is populated
-            message: `New delivery assigned: Order #${order._id} to ${order.shippingAddress.street}, ${order.shippingAddress.city}.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'newDeliveryAssignment' to delivery person: ${deliveryPersonId}`);
-
-        // 2. Notify the customer of the order (assuming order.user is the customer ID)
-        if (order.user) {
-            io.to(`user:${order.user._id.toString()}`).emit('orderDeliveryStatusUpdate', {
-                orderId: order._id,
-                deliveryId: createdDelivery._id,
-                status: createdDelivery.status,
-                message: `Your order #${order._id} has been assigned for delivery.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'orderDeliveryStatusUpdate' to customer: ${order.user._id}`);
-        }
-
-        // 3. Notify the admin dashboard
-        io.to('admin_dashboard').emit('newDeliveryAssignmentAdmin', {
-            deliveryId: createdDelivery._id,
-            orderId: order._id,
-            deliveryPersonName: deliveryPerson.name,
-            customerName: order.user ? order.user.name : 'N/A',
-            status: createdDelivery.status,
-            message: `Order #${order._id} assigned to ${deliveryPerson.name}.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'newDeliveryAssignmentAdmin' for admin dashboard.`);
-    }
-
-    res.status(201).json(createdDelivery);
+    res.redirect('/api/deliveries/deliveries');
 });
 
 // @desc    Update delivery status
@@ -150,10 +110,6 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
     }
 
     const updatedDelivery = await delivery.save();
-    await invalidateCache([
-        `deliveries:/api/deliveries/${id}`,
-        'deliveries:/api/deliveries*'
-    ]);
 
     // Update associated order's status based on delivery status
     if (delivery.order) {
@@ -175,87 +131,11 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
 
         if (orderStatusChanged) {
             await delivery.order.save();
-            await invalidateCache(`orders:/api/orders/${delivery.order._id}`);
 
-            // Notify customer and order room about order status change
-            const io = getIo();
-            if (io && delivery.order.user) {
-                io.to(`user:${delivery.order.user.toString()}`).emit('orderStatusUpdate', {
-                    orderId: delivery.order._id,
-                    newStatus: delivery.order.status,
-                    message: `Your order #${delivery.order._id} status changed to: **${delivery.order.status}**`,
-                    timestamp: new Date()
-                });
-                io.to(`order:${delivery.order._id.toString()}`).emit('orderStatusUpdate', {
-                    orderId: delivery.order._id,
-                    newStatus: delivery.order.status,
-                    message: `Order #${delivery.order._id} status changed to: **${delivery.order.status}**`,
-                    timestamp: new Date()
-                });
-            }
         }
     }
 
-
-    const io = getIo(); // Get the Socket.IO instance
-    if (io) {
-        // 1. Notify the customer of the order
-        if (updatedDelivery.order && updatedDelivery.order.user) { // Ensure customer user exists
-            io.to(`user:${updatedDelivery.order.user._id.toString()}`).emit('orderDeliveryStatusUpdate', {
-                orderId: updatedDelivery.order._id,
-                deliveryId: updatedDelivery._id,
-                status: updatedDelivery.status,
-                currentLocation: updatedDelivery.currentLocation,
-                message: `Your order #${updatedDelivery.order._id} is now **${updatedDelivery.status}**.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'orderDeliveryStatusUpdate' to customer: ${updatedDelivery.order.user._id}`);
-        }
-
-        // 2. Notify clients viewing the specific order page (if such a room exists)
-        if (updatedDelivery.order) {
-            io.to(`order:${updatedDelivery.order._id.toString()}`).emit('deliveryUpdateForOrder', {
-                orderId: updatedDelivery.order._id,
-                deliveryId: updatedDelivery._id,
-                status: updatedDelivery.status,
-                currentLocation: updatedDelivery.currentLocation,
-                message: `Delivery for order #${updatedDelivery.order._id} is now ${updatedDelivery.status}.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'deliveryUpdateForOrder' for order room: ${updatedDelivery.order._id}`);
-        }
-
-        // 3. Notify the assigned delivery person (if a separate dashboard for them, or their user room)
-        if (updatedDelivery.deliveryPerson) {
-            io.to(`user:${updatedDelivery.deliveryPerson._id.toString()}`).emit('deliveryStatusChangedForYou', {
-                deliveryId: updatedDelivery._id,
-                orderId: updatedDelivery.order ? updatedDelivery.order._id : 'N/A',
-                newStatus: updatedDelivery.status,
-                message: `Delivery #${updatedDelivery._id} status updated to: ${updatedDelivery.status}`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'deliveryStatusChangedForYou' to delivery person: ${updatedDelivery.deliveryPerson._id}`);
-        }
-        // If you have a specific room for all delivery personnel to monitor each other's updates:
-        // io.to('delivery_personnel_dashboard').emit('deliveryStatusUpdateGlobal', { /* data */ });
-
-
-        // 4. Notify the admin dashboard
-        io.to('admin_dashboard').emit('deliveryStatusChangedAdmin', {
-            deliveryId: updatedDelivery._id,
-            orderId: updatedDelivery.order ? updatedDelivery.order._id : 'N/A',
-            customerName: updatedDelivery.order && updatedDelivery.order.user ? updatedDelivery.order.user.name : 'N/A',
-            deliveryPersonName: updatedDelivery.deliveryPerson ? updatedDelivery.deliveryPerson.name : 'N/A',
-            oldStatus: oldStatus,
-            newStatus: updatedDelivery.status,
-            currentLocation: updatedDelivery.currentLocation,
-            message: `Delivery #${updatedDelivery._id} for Order #${updatedDelivery.order ? updatedDelivery.order._id : 'N/A'} changed from ${oldStatus} to ${updatedDelivery.status}.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'deliveryStatusChangedAdmin' for admin dashboard.`);
-    }
-
-    res.json(updatedDelivery);
+    res.redirect('/api/deliveries/my-deliveries');
 });
 
 // @desc    Get all deliveries (for Admin/Manager dashboard)
@@ -274,10 +154,17 @@ const getAllDeliveries = asyncHandler(async (req, res) => {
     }
 
     const deliveries = await Delivery.find(filter)
-        .populate('order', 'totalAmount status shippingAddress.city user') // Also populate 'user' from order for customer info
+        .populate('order', 'totalPrice status shippingAddress.city user') // Also populate 'user' from order for customer info
         .populate('deliveryPerson', 'name email');
 
-    res.json(deliveries);
+    res.render('deliveries/delivery_list', { // For view calls, render EJS
+        title: 'All Deliveries',
+        deliveries: deliveries,
+        user: req.user, // Pass req.user to the template
+        message: req.flash('success'),
+        error: req.flash('error'),
+        info: req.flash('info')
+    });
 });
 
 // @desc    Get deliveries assigned to the logged-in delivery person
@@ -292,10 +179,17 @@ const getMyDeliveries = asyncHandler(async (req, res) => {
     }
 
     const deliveries = await Delivery.find({ deliveryPerson: req.user.id })
-        .populate('order', 'totalAmount status shippingAddress.city user') // Get order user for customer details
+        .populate('order', 'totalPrice status shippingAddress.city user') // Get order user for customer details
         .sort({ assignmentDate: -1 }); // Latest assignments first
 
-    res.json(deliveries);
+    res.render('deliveries/my_deliveries_list', { // For view calls, render EJS
+        title: 'My Deliveries',
+        deliveries: deliveries,
+        user: req.user, // Pass req.user to the template
+        message: req.flash('success'),
+        error: req.flash('error'),
+        info: req.flash('info')
+    });
 });
 
 // @desc    Get single delivery details
@@ -303,7 +197,7 @@ const getMyDeliveries = asyncHandler(async (req, res) => {
 // @access  Private (Admin, DeliveryPerson, or Order User)
 const getDeliveryById = asyncHandler(async (req, res) => {
     const delivery = await Delivery.findById(req.params.id)
-        .populate('order', 'user totalAmount status shippingAddress.city shippingAddress.street') // Need order.user to check
+        .populate('order', 'user totalPrice status shippingAddress.city shippingAddress.street') // Need order.user to check
         .populate('deliveryPerson', 'name email');
 
     if (!delivery) {
@@ -322,9 +216,15 @@ const getDeliveryById = asyncHandler(async (req, res) => {
         throw new Error('Not authorized to view this delivery.');
     }
 
-    res.json(delivery);
+    res.render('deliveries/delivery_detail', { // For view calls, render EJS
+        title: `Delivery #${delivery._id}`,
+        delivery: delivery,
+        user: req.user, // Pass req.user to the template
+        message: req.flash('success'),
+        error: req.flash('error'),
+        info: req.flash('info')
+    });
 });
-
 
 module.exports = {
     assignDelivery,

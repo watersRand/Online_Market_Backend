@@ -2,8 +2,7 @@
 
 const Product = require('../models/Product');
 const asyncHandler = require('express-async-handler');
-const { invalidateCache } = require('../controllers/cacheController');
-const { getIo } = require('../config/socket');
+
 
 // @desc    Create a new product
 // @route   POST /products (for views) or /api/products (for API)
@@ -47,38 +46,17 @@ const createProduct = asyncHandler(async (req, res) => {
         user: req.user._id, // User who added the product
         vendor: req.user.roles === 'Vendor' ? req.user.vendor._id : null, // Assign vendor if user is a vendor
     });
-    await invalidateCache('products:/api/products*');
+
 
     if (product) {
-        const io = getIo();
-        if (io) {
-            io.emit('newProductAdded', {
-                productId: product._id,
-                name: product.name,
-                price: product.price,
-                category: product.category,
-                vendorId: product.vendor,
-                message: `New product "${product.name}" added to the catalog.`,
-                timestamp: new Date()
-            });
-            console.log(`Socket.IO: Emitted 'newProductAdded' for product: ${product._id}`);
-        }
+        res.redirect('/api/products/products'); // Redirect to product list
 
-        if (req.originalUrl.startsWith('/api/')) {
-            res.status(201).json(product);
-        } else {
-            req.flash('success', `Product "${product.name}" created successfully!`);
-            res.redirect('/products'); // Redirect to product list
-        }
     } else {
         res.status(400);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Invalid product data');
-        } else {
-            req.flash('error', 'Failed to create product. Please check your input.');
-            res.redirect('/products/create'); // Redirect back to create form
-        }
+        req.flash('error', 'Failed to create product. Please check your input.');
+        res.redirect('/api/products/products/create'); // Redirect back to create form
     }
+
 });
 
 // @desc    Update a product
@@ -123,38 +101,12 @@ const updateProduct = asyncHandler(async (req, res) => {
     product.image = image || product.image;
 
     const updatedProduct = await product.save();
-    await invalidateCache([
-        `products:/api/products/${productId}`,
-        'products:/api/products*'
-    ]);
 
-    const io = getIo();
-    if (io) {
-        io.emit('productUpdate', {
-            productId: updatedProduct._id,
-            name: updatedProduct.name,
-            price: updatedProduct.price,
-            stock: updatedProduct.countInStock,
-            message: `Product "${updatedProduct.name}" has been updated.`,
-            timestamp: new Date()
-        });
-        if (updatedProduct.countInStock === 0) {
-            io.emit('productOutOfStock', {
-                productId: updatedProduct._id,
-                name: updatedProduct.name,
-                message: `Product "${updatedProduct.name}" is now out of stock!`,
-                timestamp: new Date()
-            });
-        }
-        console.log(`Socket.IO: Emitted 'productUpdate' for product: ${updatedProduct._id}`);
-    }
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.json(updatedProduct);
-    } else {
-        req.flash('success', `Product "${updatedProduct.name}" updated successfully!`);
-        res.redirect(`/products/${updatedProduct._id}`); // Redirect to product detail page
-    }
+
+
+    req.flash('success', `Product "${updatedProduct.name}" updated successfully!`);
+    res.redirect(`/api/products/products/${updatedProduct._id}`); // Redirect to product detail page
 });
 
 // @desc    Delete a product
@@ -190,28 +142,11 @@ const deleteProduct = asyncHandler(async (req, res) => {
     }
 
     await Product.deleteOne({ _id: productId });
-    await invalidateCache([
-        `products:/api/products/${productId}`,
-        'products:/api/products*'
-    ]);
 
-    const io = getIo();
-    if (io) {
-        io.emit('productDeleted', {
-            productId: productId,
-            name: product.name,
-            message: `Product "${product.name}" has been deleted.`,
-            timestamp: new Date()
-        });
-        console.log(`Socket.IO: Emitted 'productDeleted' for product: ${productId}`);
-    }
 
-    if (req.originalUrl.startsWith('/api/')) {
-        res.json({ message: 'Product removed successfully' });
-    } else {
-        req.flash('success', `Product "${product.name}" deleted successfully.`);
-        res.redirect('/products'); // Redirect to product list
-    }
+
+    res.redirect('/api/products/products'); // Redirect to product list
+
 });
 
 // @desc    Get all products
@@ -228,8 +163,14 @@ const getProducts = asyncHandler(async (req, res) => {
     // This function is for API, so it doesn't render EJS directly.
     // The viewRoutes.js will call Product.find() and then render.
     const products = await Product.find(query).populate('vendor', 'name').populate('user', 'name');
-
-    res.json(products); // Always return JSON for this API endpoint
+    res.render('products/product_list', { // For view calls, render EJS
+        title: 'All Products',
+        products: products,
+        user: req.user, // Pass req.user to the template
+        message: req.flash('success'),
+        error: req.flash('error'),
+        info: req.flash('info')
+    });
 });
 
 // @desc    Get single product by ID
@@ -241,22 +182,15 @@ const getProductById = asyncHandler(async (req, res) => {
         .populate('user', 'name');
 
     if (product) {
-        if (req.originalUrl.startsWith('/api/')) {
-            res.json(product);
-        } else {
-            // This case is handled in viewRoutes.js directly rendering the EJS.
-            // This function might not be directly called for EJS rendering,
-            // but if it were, you'd render here.
-            res.render('products/product', { title: product.name, product, user: req.user });
-        }
+
+        res.render('/api/products/products', { title: product.name, product, user: req.user });
+
     } else {
         res.status(404);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Product not found');
-        } else {
-            req.flash('error', 'Product not found.');
-            res.redirect('/products');
-        }
+
+        req.flash('error', 'Product not found.');
+        res.redirect('/api/products/products');
+
     }
 });
 

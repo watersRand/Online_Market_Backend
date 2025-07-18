@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
         sparse: true, // Allows multiple documents to have null for this field
     },
     phoneNumber: { // Assuming added in Phase 6
-        type: String
+        type: Number
     }
 });
 
