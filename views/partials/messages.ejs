@@ -1,16 +1,9 @@
+<!-- views/partials/messages.ejs -->
+
 <!-- Container for server-side flash messages -->
 <div id="flash-messages">
-    <% if (typeof message !=='undefined' && message) { %>
-        <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
-            <%= message %>
-        </div>
-        <% } %>
-            <% if (typeof error !=='undefined' && error) { %>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4"
-                    role="alert">
-                    <%= error %>
-                </div>
-                <% } %>
+    <!-- This will render all flash messages (success, error, info, etc.) -->
+    <%- messages() %>
 </div>
 
 <!-- Container for Socket.IO real-time messages -->
@@ -143,7 +136,7 @@
         });
         socket.on('vendorAccountDeleted', (data) => {
             displaySocketMessage('error', `Your vendor account "${data.name}" has been deleted.`);
-            setTimeout(() => { window.location.href = '/login'; }, 2000); // Redirect to /login, not /auth/login
+            setTimeout(() => { window.location.href = '/login'; }, 2000);
         });
         socket.on('vendorDetailsUpdated', (data) => {
             displaySocketMessage('info', `Your vendor details for "${data.name}" have been updated by an admin.`);
@@ -151,7 +144,7 @@
 
         // --- DELIVERY CONTROLLER EVENTS ---
         socket.on('newDeliveryAssignment', (data) => {
-            displaySocketMessage('info', `New Delivery Assigned: Order #${data.orderId} to ${data.customerInfo.address.street}, ${data.customerInfo.address.city}.`);
+            displaySocketMessage('info', `New Delivery Assigned: Order #${data.orderId} to ${data.customerInfo.address.street}, ${data.customerInfo.address.address}.`);
         });
         socket.on('orderDeliveryStatusUpdate', (data) => {
             displaySocketMessage('info', `Your order #${data.orderId} is now **${data.status}**. ${data.currentLocation ? 'Current Location: ' + data.currentLocation.latitude + ', ' + data.currentLocation.longitude : ''}`);
@@ -215,7 +208,7 @@
         });
         socket.on('accountDeleted', (data) => {
             displaySocketMessage('error', data.message);
-            setTimeout(() => { window.location.href = '/login'; }, 2000); // Redirect to /login, not /auth/login
+            setTimeout(() => { window.location.href = '/login'; }, 2000);
         });
         socket.on('userUpdated', (data) => {
             displaySocketMessage('info', `User Profile Updated: ${data.name} (${data.email}).`);
@@ -225,7 +218,7 @@
         });
         socket.on('loggedOut', (data) => {
             displaySocketMessage('info', data.message);
-            setTimeout(() => { window.location.href = '/login'; }, 1000); // Redirect to /login, not /auth/login
+            setTimeout(() => { window.location.href = '/login'; }, 1000);
         });
 
         // --- PAYMENT CONTROLLER EVENTS ---
@@ -248,17 +241,7 @@
         // --- NEW: GENERIC NOTIFICATION EVENT (from notificationController) ---
         socket.on('notification', (payload) => {
             console.log('Received generic notification:', payload);
-            // Use the displaySocketMessage function to show the notification
-            // The 'type' in payload should map to your CSS classes (e.g., 'success', 'error', 'info', 'warning')
             displaySocketMessage(payload.type || 'info', payload.message);
-
-            // Optional: If you have a notification bell/icon, you might update its count here
-            // const notificationBell = document.getElementById('notification-bell');
-            // if (notificationBell) {
-            //     let count = parseInt(notificationBell.dataset.count || 0);
-            //     notificationBell.dataset.count = count + 1;
-            //     notificationBell.classList.add('has-new-notifications'); // Add a visual cue
-            // }
         });
 
 

@@ -4,31 +4,61 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 
-
-const protect = async (req, res, next) => { // Make it async
+const protect = asyncHandler(async (req, res, next) => {
     let token;
+
+    // 1. Check for token in Authorization header (for API requests)
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            console.log('Token found in Authorization header.');
+        } catch (error) {
+            console.error('Error parsing token from header:', error);
+            res.status(401);
+            throw new Error('Not authorized, token format invalid');
+        }
+    }
 
-            // Fetch the full user object including roles and vendor (if applicable)
-            req.user = await User.findById(decoded.id).populate('roles').populate('vendor');
+    // 2. If no token in header, check for token in cookies (for web app requests)
+    if (!token && req.cookies && req.cookies.jwt) {
+        token = req.cookies.jwt;
+        console.log('Token found in JWT cookie.');
+    }
+
+    // 3. If a token was found (either in header or cookie)
+    if (token) {
+        try {
+            // Verify token
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            console.log('JWT Decoded:', decoded);
+
+
+
+            // If User schema's 'roles' is a String enum (as per our previous discussion):
+            req.user = await User.findById(decoded.id).select('-password').populate('vendor'); // Only populate vendor if it's a ref
 
             if (!req.user) {
                 res.status(401);
                 throw new Error('Not authorized, user not found');
             }
 
-            next();
+            console.log('User attached to req:', req.user.email, 'Roles:', req.user.roles);
+            next(); // Proceed to the next middleware/route handler
         } catch (error) {
-            console.error('Token verification error:', error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            console.error('Token verification failed:', error.message);
+            // Clear invalid token cookie if it exists
+            if (req.cookies && req.cookies.jwt) {
+                res.clearCookie('jwt');
+            }
+            res.status(401);
+            throw new Error('Not authorized, token failed or expired');
         }
-    } else { // Handle case where no token is provided in headers
-        res.status(401).json({ message: 'Not authorized, no token' });
+    } else {
+        // If no token was found in headers or cookies
+        res.status(401);
+        throw new Error('Not authorized, no token');
     }
-};
+});
 
 
 // Updated authorize middleware to accept an array of required roles

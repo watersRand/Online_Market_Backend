@@ -106,7 +106,7 @@ const getAllComplaints = asyncHandler(async (req, res) => {
     const complaints = await Complaint.find({})
         .populate('user', 'name email')
         .populate('vendor', 'name')
-        .populate('order', 'totalAmount status')
+        // .populate('order', 'totalAmount status')
         .populate('assignedTo', 'name email')
         .sort({ createdAt: -1 });
 

@@ -1,4 +1,4 @@
-// models/Cart.js (Example using Mongoose for MongoDB)
+// models/Cart.js
 const mongoose = require('mongoose');
 
 const cartItemSchema = new mongoose.Schema({
@@ -28,18 +28,19 @@ const cartItemSchema = new mongoose.Schema({
         enum: ['pending', 'processing', 'approved', 'shipped', 'delivered', 'cancelled'],
         default: 'pending'
     }
-    // Add any other product specific attributes you need to store in the cart item
 }, { _id: false }); // Do not generate an _id for subdocuments if not needed
 
 const cartSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User', // Reference to your User model (optional, for authenticated users)
-        required: false // Can be null for anonymous carts
+        // REMOVE 'required: true' from here
+        sparse: true, // Allows multiple documents to have a null userId (for anonymous carts)
+        unique: true // Ensure a user only has one cart
     },
     sessionId: { // For anonymous users or guest carts
         type: String,
-        required: false,
+        // REMOVE 'required: true' from here
         unique: true, // Ensure unique session IDs for cart management
         sparse: true // Allows null values but enforces uniqueness for non-null values
     },
@@ -65,11 +66,16 @@ cartSchema.pre('save', function (next) {
     next();
 });
 
-// Ensure that either userId or sessionId (but not both or neither) is present
+// Ensure that either userId OR sessionId (but not both or neither) is present
+// This hook will now work correctly because Mongoose's built-in 'required' validation
+// won't fire first.
 cartSchema.pre('validate', function (next) {
+    // Check if both are present OR if both are absent
     if ((this.userId && this.sessionId) || (!this.userId && !this.sessionId)) {
+        // If both or neither, it's an error
         next(new Error('A cart must be associated with either a userId or a sessionId, but not both or neither.'));
     } else {
+        // If exactly one is present, it's valid
         next();
     }
 });

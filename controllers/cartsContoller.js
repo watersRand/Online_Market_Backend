@@ -2,64 +2,153 @@
 const Cart = require('../models/carts');
 const Product = require('../models/Product');
 const asyncHandler = require('express-async-handler');
-// const session = require('express-session'); // session is already handled by middleware in server.js
-const { invalidateCache } = require('./cacheController'); // Correct path
-const { getIo } = require('../config/socket'); // Import the getIo function
+const { invalidateCache } = require('./cacheController');
+const { getIo } = require('../config/socket');
 
-// Helper to get or create a cart based on user or session
+// Helper to get or create a cart based on user or session (with merging)
 const getOrCreateCart = async (req) => {
     let cart;
-    let query = {};
+    let userCart = null;
+    let sessionCart = null;
+    const io = getIo(); // Get Socket.IO instance for potential notifications
 
-    if (req.user) { // Authenticated user
-        query.userId = req.user._id; // Assuming req.user is the user object/ID
-    } else { // Anonymous user
-        const sessionId = req.session.id; // req.session.id is automatically managed by express-session
-        if (!sessionId) {
-            // This case should ideally be caught by session middleware, but good to have a fallback
-            throw new Error('Session ID not found. Ensure session middleware is configured correctly.');
-        }
-        query.sessionId = sessionId;
+    console.log('\n--- DEBUG: getOrCreateCart START ---');
+    console.log('req.user (ID):', req.user ? req.user._id : 'Not authenticated');
+    console.log('req.session.id:', req.session ? req.session.id : 'No session');
+
+    // 1. Try to find a cart for the authenticated user
+    if (req.user && req.user._id) {
+        userCart = await Cart.findOne({ userId: req.user._id });
+        console.log('User Cart found:', userCart ? userCart._id : 'None');
     }
 
-    cart = await Cart.findOne(query);
+    // 2. Try to find a cart for the current session
+    const sessionId = req.session.id;
+    if (sessionId) {
+        sessionCart = await Cart.findOne({ sessionId: sessionId });
+        console.log('Session Cart found:', sessionCart ? sessionCart._id : 'None');
+    }
 
-    if (!cart) {
-        // If cart doesn't exist, create it with the appropriate identifier
-        cart = new Cart(query); // query already contains userId or sessionId
+    // 3. Handle merging scenarios
+    if (userCart && sessionCart) {
+        // Scenario A: Both user cart and session cart exist
+        // Merge session cart items into user cart, then delete session cart
+        console.log('Merging session cart into user cart...');
+        userCart.items = userCart.items.concat(sessionCart.items);
+        // Deduplicate items if necessary (e.g., same product added twice)
+        const itemMap = new Map();
+        userCart.items.forEach(item => {
+            const key = item.productId.toString();
+            if (itemMap.has(key)) {
+                itemMap.get(key).quantity += item.quantity;
+            } else {
+                itemMap.set(key, item);
+            }
+        });
+        userCart.items = Array.from(itemMap.values());
+
+        await userCart.save();
+        await Cart.deleteOne({ _id: sessionCart._id }); // Delete the old session cart
+        await invalidateCache([
+            `carts:/api/cart/${userCart._id}`,
+            `carts:/api/cart?userId=${req.user._id}`,
+            `carts:/api/cart?sessionId=${sessionId}`, // Invalidate old session cart cache
+            'carts:/api/carts*'
+        ]);
+        console.log('Session cart merged and deleted. User cart updated.');
+        if (io && req.user) {
+            io.to(`user:${req.user._id.toString()}`).emit('cartUpdated', {
+                cartId: userCart._id,
+                items: userCart.items,
+                totalPrice: userCart.totalPrice,
+                message: 'Your anonymous cart items have been merged!'
+            });
+        }
+        cart = userCart;
+
+    } else if (userCart) {
+        // Scenario B: Only user cart exists (user is logged in, no anonymous cart or it was already merged)
+        console.log('Using existing user cart.');
+        cart = userCart;
+
+    } else if (sessionCart) {
+        // Scenario C: Only session cart exists (anonymous user, or logged-in user with no previous user cart)
+        // Assign userId to this cart if the user is now logged in
+        console.log('Using existing session cart.');
+        if (req.user && req.user._id) {
+            sessionCart.userId = req.user._id;
+            sessionCart.sessionId = undefined; // Remove sessionId as it's now a user cart
+            await sessionCart.save();
+            await invalidateCache([
+                `carts:/api/cart/${sessionCart._id}`,
+                `carts:/api/cart?userId=${req.user._id}`,
+                `carts:/api/cart?sessionId=${sessionId}`,
+                'carts:/api/carts*'
+            ]);
+            console('Session cart converted to user cart.');
+            if (io && req.user) {
+                io.to(`user:${req.user._id.toString()}`).emit('cartUpdated', {
+                    cartId: sessionCart._id,
+                    items: sessionCart.items,
+                    totalPrice: sessionCart.totalPrice,
+                    message: 'Your cart has been linked to your account!'
+                });
+            }
+        }
+        cart = sessionCart;
+
+    } else {
+        // Scenario D: No cart exists at all, create a new one
+        console.log('No existing cart found, creating a new one.');
+        const newCartData = {};
+        if (req.user && req.user._id) {
+            newCartData.userId = req.user._id;
+        } else {
+            if (!sessionId) {
+                console.error('ERROR: Session ID not found when trying to create new anonymous cart.');
+                throw new Error('Session ID not found. Ensure session middleware is configured correctly.');
+            }
+            newCartData.sessionId = sessionId;
+        }
+        cart = new Cart(newCartData);
+
         try {
             await cart.save();
-            // Invalidate relevant cache keys after creating a new cart
-            // Note: req.params.id might not be available here, focus on broader cache invalidation
             await invalidateCache([
-                'carts:/api/cart', // For the current user/session cart view
-                'carts:/api/carts*' // For any aggregated cart lists (if they exist)
+                'carts:/api/cart',
+                'carts:/api/carts*'
             ]);
-            console.log(`New cart created for ${req.user ? 'user ' + req.user._id : 'session ' + query.sessionId}`);
+            console.log(`New cart created successfully! ID: ${cart._id}, for ${req.user ? 'user ' + req.user._id : 'session ' + newCartData.sessionId}`);
         } catch (error) {
-            // Handle potential race condition for unique userId/sessionId constraints
-            if (error.code === 11000) { // Duplicate key error
+            if (error.code === 11000) {
                 console.warn('Race condition detected creating cart, retrying find...');
-                // Retry finding the cart if it was created by a concurrent request
-                cart = await Cart.findOne(query);
+                // This can happen if two requests try to create the cart simultaneously
+                // after the initial findOne returned null.
+                if (req.user && req.user._id) {
+                    cart = await Cart.findOne({ userId: req.user._id });
+                } else {
+                    cart = await Cart.findOne({ sessionId: sessionId });
+                }
                 if (!cart) {
-                    // If still no cart after retry, something is genuinely wrong
+                    console.error('ERROR: Failed to retrieve or create cart after race condition retry.');
                     throw new Error('Failed to retrieve or create cart after race condition.');
                 }
+                console.log('Cart found after race condition retry:', cart._id);
             } else {
-                // Re-throw other errors
+                console.error('ERROR: Error saving new cart:', error);
                 throw error;
             }
         }
     }
+    console.log('--- DEBUG: getOrCreateCart END. Returning cart ID:', cart._id, '---');
     return cart;
 };
+;
 
 // Helper function to emit cart updates via Socket.IO
 const emitCartUpdate = (cart, io) => {
     if (!io) return;
 
-    // Emit to specific user if authenticated
     if (cart.userId) {
         io.to(`user:${cart.userId.toString()}`).emit('cartUpdated', {
             cartId: cart._id,
@@ -67,18 +156,11 @@ const emitCartUpdate = (cart, io) => {
             totalPrice: cart.totalPrice,
             message: 'Your cart has been updated.'
         });
-    }
-    // Emit to specific session if anonymous (for multi-tab sync, less critical for cross-device)
-    else if (cart.sessionId) {
-        // You'd need a way to map sessionId to a Socket.IO room, often done on client connect
-        // For simplicity, we might not emit to session ID directly unless the client joins a specific room on connect
-        // based on their session ID. This part often needs careful client-side implementation.
-        // For now, let's focus on authenticated users or broader notifications.
+    } else if (cart.sessionId) {
         // If frontend subscribes to a room like `session:${sessionId}`, then uncomment below:
         // io.to(`session:${cart.sessionId}`).emit('cartUpdated', { ... });
     }
 
-    // Optionally, emit a general cart activity update to admin dashboard
     io.to('admin_dashboard').emit('adminCartActivity', {
         cartId: cart._id,
         userId: cart.userId ? cart.userId.toString() : 'anonymous',
@@ -88,200 +170,298 @@ const emitCartUpdate = (cart, io) => {
 };
 
 // @desc    Get user/session cart
-// @route   GET /api/cart
+// @route   GET /cart (for views) or /api/cart (for API - but will render EJS)
 // @access  Public/Private (depending on authentication)
 exports.getCart = asyncHandler(async (req, res) => {
+    console.log('\n--- DEBUG: getCart Controller START ---');
     const cart = await getOrCreateCart(req);
-    // No cache invalidation needed for GET, but response can be cached
-    // Cache key for this specific cart should ideally be handled by a caching middleware
-    res.status(200).json({ success: true, data: cart });
+
+    // This populate is needed for cart-view-ejs to display product details
+    await cart.populate({
+        path: 'items.productId',
+        select: 'name price imageUrl countInStock'
+    });
+    console.log('DEBUG: Cart after populate:', JSON.stringify(cart.toObject(), null, 2)); // Log populated cart
+
+    res.render('shoppingcart', {
+        title: 'Your Shopping Cart',
+        cart: cart,
+        user: req.user
+    });
+    console.log('--- DEBUG: getCart Controller END ---');
 });
 
 // @desc    Add item to cart
-// @route   POST /api/cart/add
+// @route   POST /cart/add (for views) or /api/cart/add (for API)
 // @access  Public/Private
 exports.addItemToCart = asyncHandler(async (req, res) => {
-    const { productId, quantity = 1 } = req.body;
+    const { productId, quantity = 1 } = req.body; // quantity here is the amount being added
 
-    // 1. Validate Product Existence
+    console.log('\n--- DEBUG: addItemToCart Controller START ---');
+    console.log('Request Body:', req.body);
+
     const product = await Product.findById(productId);
     if (!product) {
         res.status(404);
-        throw new Error('Product not found.');
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Product not found.');
+        } else {
+            req.flash('error', 'Product not found. Cannot add to cart.');
+            return res.redirect('/products');
+        }
     }
 
-    // 2. Get or Create Cart
     const cart = await getOrCreateCart(req);
+    console.log('Cart retrieved/created for addItemToCart. ID:', cart._id);
 
-    // 3. Check for existing item and stock
     const existingItemIndex = cart.items.findIndex(item =>
         item.productId.toString() === productId
-        // Add checks for product options (color, size, etc.) here if applicable
-        // e.g., && item.color === color && item.size === size
     );
 
-    let newQuantity = quantity;
+    let newQuantity = quantity; // newQuantity is initialized with the ADDED quantity
     if (existingItemIndex > -1) {
-        // Item exists, update quantity
         const existingItem = cart.items[existingItemIndex];
-        newQuantity = existingItem.quantity + quantity;
-        if (product.stock < newQuantity) {
+        newQuantity = existingItem.quantity + quantity; // newQuantity becomes the TOTAL desired quantity in cart
+
+        // --- AGGRESSIVE DEBUGGING LOGS ---
+        console.log('\n--- DEBUG: addItemToCart Stock Check ---');
+        console.log('Product ID:', productId);
+        console.log('Product Name:', product.name);
+        console.log('Product countInStock:', product.countInStock);
+        console.log('Existing item quantity in cart:', existingItem.quantity);
+        console.log('Quantity being added (req.body.quantity):', quantity);
+        console.log('Calculated new TOTAL quantity in cart (existing + added):', newQuantity);
+        console.log('Condition: product.countInStock < newQuantity ->', product.countInStock < newQuantity);
+        console.log('--------------------------------------\n');
+        // --- END AGGRESSIVE DEBUGGING LOGS ---
+
+        if (product.countInStock < newQuantity) { // This is line 122
             res.status(400);
-            throw new Error(`Adding ${quantity} exceeds stock. Max you can add: ${product.stock - existingItem.quantity}. Available: ${product.stock}`);
+            const remainingStock = product.countInStock - existingItem.quantity;
+            const errorMessage = `Cannot add ${quantity} units. Total cart quantity (${newQuantity}) would exceed available stock (${product.countInStock}). You can add up to ${remainingStock} more units.`;
+            if (req.originalUrl.startsWith('/api/')) {
+                throw new Error(errorMessage);
+            } else {
+                req.flash('error', errorMessage);
+                return res.redirect('/cart');
+            }
         }
         existingItem.quantity = newQuantity;
     } else {
-        // New item, add to cart
-        if (product.stock < quantity) {
+        if (product.countInStock < quantity) {
             res.status(400);
-            throw new Error(`Not enough stock for ${product.name}. Available: ${product.stock}`);
+            if (req.originalUrl.startsWith('/api/')) {
+                throw new Error(`Not enough stock for ${product.name}. Available: ${product.countInStock}`);
+            } else {
+                req.flash('error', `Not enough stock for "${product.name}". Available: ${product.countInStock}.`);
+                return res.redirect('/products');
+            }
         }
         cart.items.push({
             productId: product._id,
             name: product.name,
             price: product.price,
             quantity: quantity,
-            imageUrl: product.imageUrl, // Storing image for display purposes
-            // Add other product attributes if needed (e.g., color, size)
+            imageUrl: product.imageUrl,
         });
     }
 
-    // 4. Save Cart
-    await cart.save(); // This will trigger pre-save hook for totalPrice calculation
+    await cart.save();
+    console.log('Cart saved after addItemToCart. Cart ID:', cart._id);
 
-    // 5. Invalidate Caches
     await invalidateCache([
-        `carts:/api/cart/${cart._id}`, // Specific cart by ID (if you have such an endpoint)
-        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`, // User/session specific cart
-        'carts:/api/carts*' // All carts list (if exists)
+        `carts:/api/cart/${cart._id}`,
+        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
+        'carts:/api/carts*'
     ]);
 
-    // 6. Emit Socket.IO Update
     const io = getIo();
     emitCartUpdate(cart, io);
 
-    // 7. Send Response
-    res.status(200).json({ success: true, data: cart });
+    if (req.originalUrl.startsWith('/api/')) {
+        res.status(200).json({ success: true, data: cart, message: `"${product.name}" added to cart.` });
+    } else {
+        req.flash('success', `"${product.name}" added to cart!`);
+        res.redirect('/cart');
+    }
+    console.log('--- DEBUG: addItemToCart Controller END ---');
 });
 
 // @desc    Update item quantity in cart
-// @route   PUT /api/cart/update/:productId
+// @route   PUT /cart/update/:productId (for views) or /api/cart/update/:productId (for API)
 // @access  Public/Private
 exports.updateCartItemQuantity = asyncHandler(async (req, res) => {
     const { productId } = req.params;
-    const { quantity } = req.body; // Target quantity after update
+    const { quantity } = req.body; // quantity here is the TARGET quantity
+
+    console.log('\n--- DEBUG: updateCartItemQuantity Controller START ---');
+    console.log('Request Params:', req.params, 'Request Body:', req.body);
 
     if (quantity < 0) {
         res.status(400);
-        throw new Error('Quantity cannot be negative.');
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Quantity cannot be negative.');
+        } else {
+            req.flash('error', 'Quantity cannot be negative.');
+            return res.redirect('/cart');
+        }
     }
 
-    // 1. Get or Create Cart
     const cart = await getOrCreateCart(req);
+    console.log('Cart retrieved/created for updateCartItemQuantity. ID:', cart._id);
 
-    // 2. Find Item in Cart
     const itemIndex = cart.items.findIndex(item => item.productId.toString() === productId);
 
     if (itemIndex === -1) {
         res.status(404);
-        throw new Error('Item not found in cart.');
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Item not found in cart.');
+        } else {
+            req.flash('error', 'Item not found in cart.');
+            return res.redirect('/cart');
+        }
     }
 
-    // 3. Handle Quantity = 0 (Remove Item)
     if (quantity === 0) {
-        cart.items.splice(itemIndex, 1); // Remove item
+        cart.items.splice(itemIndex, 1);
+        console.log('DEBUG: Item quantity set to 0, removing item from cart.');
     } else {
-        // 4. Validate Stock for New Quantity
         const product = await Product.findById(productId);
         if (!product) {
             res.status(404);
-            throw new Error('Product not found in system (item was in cart, but product disappeared).');
+            if (req.originalUrl.startsWith('/api/')) {
+                throw new Error('Product not found in system (item was in cart, but product disappeared).');
+            } else {
+                req.flash('error', 'Product associated with cart item not found.');
+                return res.redirect('/cart');
+            }
         }
-        if (product.stock < quantity) {
+        // Validate stock for the TARGET quantity
+        console.log('DEBUG: Product stock:', product.countInStock, 'Target quantity:', quantity);
+        if (product.countInStock < quantity) {
             res.status(400);
-            throw new Error(`Cannot set quantity to ${quantity}. Only ${product.stock} available for ${product.name}.`);
+            const errorMessage = `Cannot set quantity to ${quantity}. Only ${product.countInStock} available for ${product.name}.`;
+            if (req.originalUrl.startsWith('/api/')) {
+                throw new Error(errorMessage);
+            } else {
+                req.flash('error', errorMessage);
+                return res.redirect('/cart');
+            }
         }
         cart.items[itemIndex].quantity = quantity;
+        // Optionally update name, price, imageUrl if product details might have changed
+        // cart.items[itemIndex].name = product.name;
+        // cart.items[itemIndex].price = product.price;
+        // cart.items[itemIndex].imageUrl = product.imageUrl;
     }
 
-    // 5. Save Cart
+    console.log('DEBUG: Cart items before save:', JSON.stringify(cart.items.toObject(), null, 2));
     await cart.save();
+    console.log('DEBUG: Cart saved successfully after updateCartItemQuantity. Cart ID:', cart._id);
 
-    // 6. Invalidate Caches
     await invalidateCache([
-        `carts:/api/cart/${cart._id}`, // Specific cart by ID
-        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`, // User/session specific cart
-        'carts:/api/carts*' // All carts list
+        `carts:/api/cart/${cart._id}`,
+        `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
+        'carts:/api/carts*'
     ]);
 
-    // 7. Emit Socket.IO Update
     const io = getIo();
     emitCartUpdate(cart, io);
 
-    // 8. Send Response
-    res.status(200).json({ success: true, data: cart });
+    if (req.originalUrl.startsWith('/api/')) {
+        res.status(200).json({ success: true, data: cart, message: 'Cart item quantity updated.' });
+    } else {
+        req.flash('success', 'Cart item quantity updated.');
+        res.redirect('/cart');
+    }
+    console.log('--- DEBUG: updateCartItemQuantity Controller END ---');
 });
 
 // @desc    Remove item from cart
-// @route   DELETE /api/cart/remove/:productId
+// @route   DELETE /cart/remove/:productId (for views) or /api/cart/remove/:productId (for API)
 // @access  Public/Private
 exports.removeCartItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
 
-    // 1. Get or Create Cart
-    const cart = await getOrCreateCart(req);
+    console.log('\n--- DEBUG: removeCartItem Controller START ---');
+    console.log('Request Params:', req.params);
 
-    // 2. Filter out the item
+    const cart = await getOrCreateCart(req);
+    console.log('Cart retrieved/created for removeCartItem. ID:', cart._id);
+
     const initialLength = cart.items.length;
     cart.items = cart.items.filter(item => item.productId.toString() !== productId);
 
     if (cart.items.length === initialLength) {
         res.status(404);
-        throw new Error('Item not found in cart.');
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Item not found in cart.');
+        } else {
+            req.flash('error', 'Item not found in cart.');
+            return res.redirect('/cart');
+        }
     }
 
-    // 3. Save Cart
+    console.log('DEBUG: Cart items before save (after filter):', JSON.stringify(cart.items.toObject(), null, 2));
     await cart.save();
+    console.log('DEBUG: Cart saved successfully after removeCartItem. Cart ID:', cart._id);
 
-    // 4. Invalidate Caches
     await invalidateCache([
         `carts:/api/cart/${cart._id}`,
         `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
         'carts:/api/carts*'
     ]);
 
-    // 5. Emit Socket.IO Update
     const io = getIo();
     emitCartUpdate(cart, io);
 
-    // 6. Send Response
-    res.status(200).json({ success: true, data: cart });
+    if (req.originalUrl.startsWith('/api/')) {
+        res.status(200).json({ success: true, data: cart, message: 'Item removed from cart.' });
+    } else {
+        req.flash('success', 'Item removed from cart.');
+        res.redirect('/cart');
+    }
+    console.log('--- DEBUG: removeCartItem Controller END ---');
 });
 
 // @desc    Clear cart
-// @route   DELETE /api/cart/clear
+// @route   POST /cart/clear (for views) or /api/cart/clear (for API)
 // @access  Public/Private
 exports.clearCart = asyncHandler(async (req, res) => {
-    // 1. Get or Create Cart
+    console.log('\n--- DEBUG: clearCart Controller START ---');
     const cart = await getOrCreateCart(req);
+    console.log('Cart retrieved/created for clearCart. ID:', cart._id);
 
-    // 2. Clear items
+    if (cart.items.length === 0) {
+        console.log('DEBUG: Cart already empty, skipping clear.');
+        if (req.originalUrl.startsWith('/api/')) {
+            return res.status(200).json({ success: true, data: cart, message: 'Cart already empty.' });
+        } else {
+            req.flash('info', 'Your cart is already empty.');
+            return res.redirect('/cart');
+        }
+    }
+
     cart.items = [];
 
-    // 3. Save Cart
+    console.log('DEBUG: Cart items before save (after clear):', JSON.stringify(cart.items.toObject(), null, 2));
     await cart.save();
+    console.log('DEBUG: Cart saved successfully after clearCart. Cart ID:', cart._id);
 
-    // 4. Invalidate Caches
     await invalidateCache([
         `carts:/api/cart/${cart._id}`,
         `carts:/api/cart?${req.user ? `userId=${req.user._id}` : `sessionId=${req.session.id}`}`,
         'carts:/api/carts*'
     ]);
 
-    // 5. Emit Socket.IO Update
     const io = getIo();
     emitCartUpdate(cart, io);
 
-    // 6. Send Response
-    res.status(200).json({ success: true, data: cart });
+    if (req.originalUrl.startsWith('/api/')) {
+        res.status(200).json({ success: true, data: cart, message: 'Your cart has been cleared.' });
+    } else {
+        req.flash('success', 'Your cart has been cleared.');
+        res.redirect('/cart');
+    }
+    console.log('--- DEBUG: clearCart Controller END ---');
 });

@@ -1,339 +1,270 @@
-const asyncHandler = require('express-async-handler');
+// controllers/productController.js
+
 const Product = require('../models/Product');
-const Vendor = require('../models/vendor'); // Import Vendor model
-const User = require('../models/User'); // Assuming User model has roles
+const asyncHandler = require('express-async-handler');
 const { invalidateCache } = require('../controllers/cacheController');
-const { getIo } = require('../config/socket'); // Import getIo to access Socket.IO
+const { getIo } = require('../config/socket');
 
-// Helper to determine if a user has a specific role
-const hasRole = (user, role) => user && user.roles && user.roles.includes(role);
-
-// @desc    Create a product
-// @route   POST /api/products
-// @access  Private/Admin or VendorAdmin
+// @desc    Create a new product
+// @route   POST /products (for views) or /api/products (for API)
+// @access  Private (Vendor/Admin)
 const createProduct = asyncHandler(async (req, res) => {
-    const { name, price, description, category, countInStock, vendorId } = req.body;
+    const { name, description, price, category, countInStock, image } = req.body;
 
-    const reqUser = await User.findById(req.user._id); // Assuming req.user contains the user ID
-    if (!reqUser) {
-        res.status(401);
-        throw new Error('User not found.');
-    }
+    // Assuming req.user is populated by 'protect' middleware
+    // and req.user.roles is a string (e.g., 'Vendor', 'Admin')
+    // and req.user.vendor is populated if the user is a vendor.
 
-    let assignedVendorId;
-
-    // Authorization logic for product creation
-    if (hasRole(reqUser, 'Admin')) { // Check if user is a Super Admin
-        if (!vendorId) {
-            res.status(400);
-            throw new Error('Admin must specify vendorId in the request body when creating a product.');
-        }
-        const vendor = await Vendor.findById(vendorId);
-        if (!vendor) {
-            res.status(404);
-            throw new Error('Specified vendor not found.');
-        }
-        assignedVendorId = vendorId;
-    } else if (hasRole(reqUser, 'vendor')) { // Check if user is a Vendor Admin
-        if (!reqUser.vendor) {
-            res.status(403);
-            throw new Error('Vendor account not linked to a vendor. Please contact support.');
-        }
-        // Vendor admins can only create products for their own vendor
-        if (vendorId && vendorId.toString() !== reqUser.vendor.toString()) {
-            res.status(403);
-            throw new Error('Vendor can only create products for their assigned vendor.');
-        }
-        assignedVendorId = reqUser.vendor;
-    } else {
+    // Basic authorization check
+    if (req.user.roles !== 'Vendor' && req.user.roles !== 'Admin') {
         res.status(403);
-        throw new Error('Not authorized to create products.');
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Not authorized to create products.');
+        } else {
+            req.flash('error', 'You are not authorized to create products.');
+            return res.redirect('/products'); // Redirect to product list
+        }
     }
 
-    const product = new Product({
-        user: reqUser._id, // User who created it
-        vendor: assignedVendorId, // Assign to determined vendor
+    // If user is a vendor, ensure they are associated with a vendor
+    if (req.user.roles === 'Vendor' && !req.user.vendor) {
+        res.status(400);
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Vendor account not associated. Cannot create product.');
+        } else {
+            req.flash('error', 'You must have an associated vendor account to create products.');
+            return res.redirect('/dashboard'); // Or a vendor setup page
+        }
+    }
+
+    const product = await Product.create({
         name,
-        price,
         description,
+        price,
         category,
         countInStock,
+        image,
+        user: req.user._id, // User who added the product
+        vendor: req.user.roles === 'Vendor' ? req.user.vendor._id : null, // Assign vendor if user is a vendor
     });
+    await invalidateCache('products:/api/products*');
 
-    const createdProduct = await product.save();
-    await invalidateCache(['products:/api/products*', `products:/api/products/${createdProduct._id}`]); // Invalidate specific and all products cache
-
-    const io = getIo(); // Get the Socket.IO instance
-    if (io) {
-        // Notify admins about new product creation
-        io.to('admin_dashboard').emit('newProductAdded', {
-            productId: createdProduct._id,
-            name: createdProduct.name,
-            vendorId: createdProduct.vendor,
-            creatorId: createdProduct.user,
-            message: `New product "${createdProduct.name}" added.`,
-            timestamp: new Date()
-        });
-        // You could also notify the specific vendor's dashboard if they have one
-        if (createdProduct.vendor) {
-            io.to(`vendor_dashboard:${createdProduct.vendor.toString()}`).emit('productAdded', {
-                productId: createdProduct._id,
-                name: createdProduct.name,
-                message: `Your new product "${createdProduct.name}" is live!`,
+    if (product) {
+        const io = getIo();
+        if (io) {
+            io.emit('newProductAdded', {
+                productId: product._id,
+                name: product.name,
+                price: product.price,
+                category: product.category,
+                vendorId: product.vendor,
+                message: `New product "${product.name}" added to the catalog.`,
                 timestamp: new Date()
             });
+            console.log(`Socket.IO: Emitted 'newProductAdded' for product: ${product._id}`);
+        }
+
+        if (req.originalUrl.startsWith('/api/')) {
+            res.status(201).json(product);
+        } else {
+            req.flash('success', `Product "${product.name}" created successfully!`);
+            res.redirect('/products'); // Redirect to product list
+        }
+    } else {
+        res.status(400);
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Invalid product data');
+        } else {
+            req.flash('error', 'Failed to create product. Please check your input.');
+            res.redirect('/products/create'); // Redirect back to create form
         }
     }
-
-    res.status(201).json(createdProduct);
 });
 
 // @desc    Update a product
-// @route   PUT /api/products/:id
-// @access  Private/Admin or VendorAdmin
+// @route   PUT /products/:id (for views) or /api/products/:id (for API)
+// @access  Private (Vendor/Admin)
 const updateProduct = asyncHandler(async (req, res) => {
-    const { name, price, description, category, countInStock } = req.body;
+    const { name, description, price, category, countInStock, image } = req.body;
+    const productId = req.params.id;
 
-    const reqUser = await User.findById(req.user._id); // Assuming req.user contains the user ID
-    if (!reqUser) {
-        res.status(401);
-        throw new Error('User not found.');
+    let product = await Product.findById(productId);
+
+    if (!product) {
+        res.status(404);
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Product not found');
+        } else {
+            req.flash('error', 'Product not found for update.');
+            return res.redirect('/products');
+        }
     }
 
-    const product = await Product.findById(req.params.id);
+    // Authorization: Only the product's vendor or an admin can update
+    const isAuthorized = (req.user.roles === 'Admin') ||
+        (req.user.roles === 'Vendor' && req.user.vendor && product.vendor &&
+            req.user.vendor._id.toString() === product.vendor.toString());
 
-    if (product) {
-        // Authorization: Only Super Admin or the owning Vendor Admin can update
-        const isSuperAdmin = hasRole(reqUser, 'Admin');
-        const isOwningVendorAdmin = hasRole(reqUser, 'vendor') &&
-            reqUser.vendor &&
-            product.vendor.toString() === reqUser.vendor.toString();
-
-        if (!isSuperAdmin && !isOwningVendorAdmin) {
-            res.status(403);
+    if (!isAuthorized) {
+        res.status(403);
+        if (req.originalUrl.startsWith('/api/')) {
             throw new Error('Not authorized to update this product.');
+        } else {
+            req.flash('error', 'You are not authorized to update this product.');
+            return res.redirect('/products');
         }
+    }
 
-        // Store old stock for comparison
-        const oldStock = product.countInStock;
+    product.name = name || product.name;
+    product.description = description || product.description;
+    product.price = price || product.price;
+    product.category = category || product.category;
+    product.countInStock = countInStock !== undefined ? countInStock : product.countInStock;
+    product.image = image || product.image;
 
-        product.name = name !== undefined ? name : product.name;
-        product.price = price !== undefined ? price : product.price;
-        product.description = description !== undefined ? description : product.description;
-        product.category = category !== undefined ? category : product.category;
-        product.countInStock = countInStock !== undefined ? countInStock : product.countInStock;
+    const updatedProduct = await product.save();
+    await invalidateCache([
+        `products:/api/products/${productId}`,
+        'products:/api/products*'
+    ]);
 
-        const updatedProduct = await product.save();
-
-        await invalidateCache([
-            `products:/api/products/${req.params.id}`, // Specific product by ID
-            'products:/api/products*' // All product list views
-        ]);
-
-        const io = getIo();
-        if (io) {
-            // Emit to clients on the specific product page and general product lists
-            io.to(`product:${updatedProduct._id.toString()}`).emit('productUpdate', {
+    const io = getIo();
+    if (io) {
+        io.emit('productUpdate', {
+            productId: updatedProduct._id,
+            name: updatedProduct.name,
+            price: updatedProduct.price,
+            stock: updatedProduct.countInStock,
+            message: `Product "${updatedProduct.name}" has been updated.`,
+            timestamp: new Date()
+        });
+        if (updatedProduct.countInStock === 0) {
+            io.emit('productOutOfStock', {
                 productId: updatedProduct._id,
                 name: updatedProduct.name,
-                price: updatedProduct.price,
-                stock: updatedProduct.countInStock,
-                available: updatedProduct.countInStock > 0,
-                description: updatedProduct.description,
-                category: updatedProduct.category,
-                imageUrl: updatedProduct.image, // Assuming product has an image field
+                message: `Product "${updatedProduct.name}" is now out of stock!`,
                 timestamp: new Date()
             });
-            console.log(`Emitted productUpdate for product: ${updatedProduct.name} (${updatedProduct._id})`);
-
-            // If stock changed and is now low, alert admins/vendor
-            const newStock = updatedProduct.countInStock;
-            const lowStockThreshold = 10; // Define your threshold
-
-            if (oldStock > lowStockThreshold && newStock <= lowStockThreshold) {
-                // Alert if stock crossed the threshold from above
-                io.to('admin_dashboard').emit('adminAlert', {
-                    type: 'low_stock_critical',
-                    productId: updatedProduct._id,
-                    name: updatedProduct.name,
-                    stock: newStock,
-                    message: `CRITICAL LOW STOCK: ${updatedProduct.name} has only ${newStock} units left!`,
-                    timestamp: new Date()
-                });
-                if (updatedProduct.vendor) {
-                    io.to(`vendor_dashboard:${updatedProduct.vendor.toString()}`).emit('vendorAlert', {
-                        type: 'low_stock_critical',
-                        productId: updatedProduct._id,
-                        name: updatedProduct.name,
-                        stock: newStock,
-                        message: `URGENT: ${updatedProduct.name} in your store has only ${newStock} units left!`,
-                        timestamp: new Date()
-                    });
-                }
-                console.log(`Emitted low stock alert for product: ${updatedProduct.name}`);
-            } else if (newStock <= lowStockThreshold && newStock > 0) {
-                // Regular low stock alert if it's already low but not critical new threshold
-                io.to('admin_dashboard').emit('adminAlert', {
-                    type: 'low_stock',
-                    productId: updatedProduct._id,
-                    name: updatedProduct.name,
-                    stock: newStock,
-                    message: `Low stock: ${updatedProduct.name} has ${newStock} units left.`,
-                    timestamp: new Date()
-                });
-                if (updatedProduct.vendor) {
-                    io.to(`vendor_dashboard:${updatedProduct.vendor.toString()}`).emit('vendorAlert', {
-                        type: 'low_stock',
-                        productId: updatedProduct._id,
-                        name: updatedProduct.name,
-                        stock: newStock,
-                        message: `Low stock: ${updatedProduct.name} has ${newStock} units left.`,
-                        timestamp: new Date()
-                    });
-                }
-            } else if (newStock === 0) {
-                // Out of stock alert
-                io.to('admin_dashboard').emit('adminAlert', {
-                    type: 'out_of_stock',
-                    productId: updatedProduct._id,
-                    name: updatedProduct.name,
-                    stock: newStock,
-                    message: `OUT OF STOCK: ${updatedProduct.name} is now out of stock!`,
-                    timestamp: new Date()
-                });
-                if (updatedProduct.vendor) {
-                    io.to(`vendor_dashboard:${updatedProduct.vendor.toString()}`).emit('vendorAlert', {
-                        type: 'out_of_stock',
-                        productId: updatedProduct._id,
-                        name: updatedProduct.name,
-                        stock: newStock,
-                        message: `OUT OF STOCK: Your product ${updatedProduct.name} is now out of stock!`,
-                        timestamp: new Date()
-                    });
-                }
-                io.to(`product:${updatedProduct._id.toString()}`).emit('productOutOfStock', {
-                    productId: updatedProduct._id,
-                    name: updatedProduct.name,
-                    timestamp: new Date()
-                });
-                console.log(`Emitted out of stock alert for product: ${updatedProduct.name}`);
-            }
         }
+        console.log(`Socket.IO: Emitted 'productUpdate' for product: ${updatedProduct._id}`);
+    }
 
+    if (req.originalUrl.startsWith('/api/')) {
         res.json(updatedProduct);
     } else {
-        res.status(404);
-        throw new Error('Product not found');
+        req.flash('success', `Product "${updatedProduct.name}" updated successfully!`);
+        res.redirect(`/products/${updatedProduct._id}`); // Redirect to product detail page
     }
 });
 
 // @desc    Delete a product
-// @route   DELETE /api/products/:id
-// @access  Private/Admin
+// @route   DELETE /products/:id (for views) or /api/products/:id (for API)
+// @access  Private (Vendor/Admin)
 const deleteProduct = asyncHandler(async (req, res) => {
-    const product = await Product.findById(req.params.id);
+    const productId = req.params.id;
+    const product = await Product.findById(productId);
 
-    const reqUser = await User.findById(req.user._id);
-    if (!reqUser) {
-        res.status(401);
-        throw new Error('User not found.');
+    if (!product) {
+        res.status(404);
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Product not found');
+        } else {
+            req.flash('error', 'Product not found for deletion.');
+            return res.redirect('/products');
+        }
     }
 
-    if (product) {
-        // Only Super Admin can delete products (for stricter control)
-        if (!hasRole(reqUser, 'Admin')) {
-            res.status(403);
-            throw new Error('Not authorized to delete products.');
+    // Authorization: Only the product's vendor or an admin can delete
+    const isAuthorized = (req.user.roles === 'Admin') ||
+        (req.user.roles === 'Vendor' && req.user.vendor && product.vendor &&
+            req.user.vendor._id.toString() === product.vendor.toString());
+
+    if (!isAuthorized) {
+        res.status(403);
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Not authorized to delete this product.');
+        } else {
+            req.flash('error', 'You are not authorized to delete this product.');
+            return res.redirect('/products');
         }
+    }
 
-        await Product.deleteOne({ _id: product._id });
+    await Product.deleteOne({ _id: productId });
+    await invalidateCache([
+        `products:/api/products/${productId}`,
+        'products:/api/products*'
+    ]);
 
-        await invalidateCache([
-            `products:/api/products/${req.params.id}`, // Specific product by ID
-            'products:/api/products*' // All product list views
-        ]);
+    const io = getIo();
+    if (io) {
+        io.emit('productDeleted', {
+            productId: productId,
+            name: product.name,
+            message: `Product "${product.name}" has been deleted.`,
+            timestamp: new Date()
+        });
+        console.log(`Socket.IO: Emitted 'productDeleted' for product: ${productId}`);
+    }
 
-        const io = getIo();
-        if (io) {
-            // Notify admins and potentially clients (e.g., if on a product list page)
-            io.to('admin_dashboard').emit('productDeleted', {
-                productId: product._id,
-                name: product.name,
-                message: `Product "${product.name}" has been deleted.`,
-                timestamp: new Date()
-            });
-            // If clients are on a general products list and need live updates
-            io.emit('productRemovedFromCatalog', {
-                productId: product._id,
-                name: product.name,
-                message: `Product "${product.name}" is no longer available.`,
-                timestamp: new Date()
-            });
-            console.log(`Emitted product deleted event for product: ${product.name}`);
-        }
-
-        res.json({ message: 'Product removed' });
+    if (req.originalUrl.startsWith('/api/')) {
+        res.json({ message: 'Product removed successfully' });
     } else {
-        res.status(404);
-        throw new Error('Product not found');
+        req.flash('success', `Product "${product.name}" deleted successfully.`);
+        res.redirect('/products'); // Redirect to product list
     }
 });
 
 // @desc    Get all products
-// @route   GET /api/products
+// @route   GET /products (for views) or /api/products (for API)
 // @access  Public
 const getProducts = asyncHandler(async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 10; // Default page size
-    const page = Number(req.query.pageNumber) || 1;
-    const keyword = req.query.keyword
-        ? {
-            name: {
-                $regex: req.query.keyword,
-                $options: 'i',
-            },
-        }
-        : {};
+    let query = {};
+    const keyword = req.query.keyword || '';
 
-    let query = { ...keyword };
-
-    // If the user is a vendor admin, only show products from their vendor
-    // Assuming req.user is populated with vendor details or at least vendor ID
-    if (req.user && req.user._id) { // Ensure user is authenticated
-        const loggedInUser = await User.findById(req.user._id).populate('vendor');
-        if (loggedInUser && hasRole(loggedInUser, 'vendor') && loggedInUser.vendor) {
-            query.vendor = loggedInUser.vendor._id;
-            console.log(`Filtering products for vendor: ${loggedInUser.vendor._id}`);
-        }
+    if (keyword) {
+        query.name = { $regex: keyword, $options: 'i' };
     }
 
-    const count = await Product.countDocuments(query);
-    const products = await Product.find(query)
-        .limit(pageSize)
-        .skip(pageSize * (page - 1));
+    // This function is for API, so it doesn't render EJS directly.
+    // The viewRoutes.js will call Product.find() and then render.
+    const products = await Product.find(query).populate('vendor', 'name').populate('user', 'name');
 
-    res.json({ products, page, pages: Math.ceil(count / pageSize) });
+    res.json(products); // Always return JSON for this API endpoint
 });
 
-
-// @desc    Get product by ID
-// @route   GET /api/products/:id
+// @desc    Get single product by ID
+// @route   GET /products/:id (for views) or /api/products/:id (for API)
 // @access  Public
 const getProductById = asyncHandler(async (req, res) => {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id)
+        .populate('vendor', 'name')
+        .populate('user', 'name');
 
     if (product) {
-        res.json(product);
+        if (req.originalUrl.startsWith('/api/')) {
+            res.json(product);
+        } else {
+            // This case is handled in viewRoutes.js directly rendering the EJS.
+            // This function might not be directly called for EJS rendering,
+            // but if it were, you'd render here.
+            res.render('products/product', { title: product.name, product, user: req.user });
+        }
     } else {
         res.status(404);
-        throw new Error('Product not found');
+        if (req.originalUrl.startsWith('/api/')) {
+            throw new Error('Product not found');
+        } else {
+            req.flash('error', 'Product not found.');
+            res.redirect('/products');
+        }
     }
 });
 
 
 module.exports = {
-    getProducts,
-    getProductById,
     createProduct,
     updateProduct,
     deleteProduct,
+    getProducts,
+    getProductById
 };

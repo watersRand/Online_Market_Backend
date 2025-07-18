@@ -17,7 +17,7 @@ router.get('/my-payments', protect, async (req, res) => {
 router.get('/', protect, authorize('Admin'), async (req, res) => {
     const payments = await Payment.find({})
         .populate('user', 'name email')
-        .populate('order', 'totalAmount status')
+        .populate(`order`, 'totalAmount status')
         .sort({ createdAt: -1 });
     res.render('payments/allpayments', { title: 'All Payments', payments, user: req.user });
 });

@@ -5,18 +5,8 @@ const { protect } = require('../middleware/authMiddleware');
 const Cart = require('../models/carts'); // Your Cart/Order model
 
 // Render cart page
-router.get('/cart', async (req, res) => {
-    // Simulate fetching cart based on user or session
-    let cart = { items: [], totalPrice: 0 };
-    if (req.user) {
-        cart = await Cart.findOne({ userId: req.user._id });
-    } else if (req.session && req.session.id) {
-        cart = await Cart.findOne({ sessionId: req.session.id });
-    }
-    cart = cart || { items: [], totalPrice: 0 }; // Ensure cart is not null
+router.get('/cart', protect, getCart)
 
-    res.render('cart', { title: 'Your Cart', cart, user: req.user });
-});
 
 // Handle adding item to cart
 router.post('/cart/add', addItemToCart);

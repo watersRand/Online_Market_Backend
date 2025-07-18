@@ -10,6 +10,11 @@ const notificationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    order: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Cart',
+        required: false
+    },
     type: { // e.g., 'order_status', 'delivery_update', 'promo', 'account_alert'
         type: String,
         required: true

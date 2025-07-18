@@ -80,7 +80,7 @@
                 <h2 class="text-2xl font-semibold text-gray-800 mb-4">Check Payment Status</h2>
                 <p class="text-gray-700 mb-4">If you initiated the M-Pesa prompt but haven't received confirmation, you
                     can query the status here.</p>
-                <form action="/api/payments/payments/status/<%= payment.mpesaRequest.CheckoutRequestID %>" method="GET">
+                <form action="/api/payments/status/<%= payment.mpesaRequest.CheckoutRequestID %>" method="GET">
                     <button type="submit" class="btn btn-primary px-6 py-3 text-lg">Query M-Pesa Status</button>
                 </form>
             </div>
@@ -90,7 +90,7 @@
         <div class="text-center text-gray-600 py-12 bg-white card">
             <h1 class="text-3xl font-bold mb-4">Payment Not Found</h1>
             <p>The payment record you are looking for does not exist.</p>
-            <a href="/api/payments/payments/my-payments" class="btn btn-primary mt-6 inline-block">Back to My
+            <a href="/api/payments/my-payments" class="btn btn-primary mt-6 inline-block">Back to My
                 Payments</a>
         </div>
         <% } %>

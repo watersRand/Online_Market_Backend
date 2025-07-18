@@ -32,6 +32,10 @@ const { initSocket, getIo } = require('./config/socket'); // Import initSocket a
 
 dotenv.config();
 
+
+const flash = require('connect-flash');       // Import connect-flash
+const expressMessages = require('express-messages');
+
 const app = express();
 
 // Create an HTTP server from your Express app
@@ -42,20 +46,26 @@ const httpServer = http.createServer(app);
 initSocket(httpServer);
 
 
+// --- Method Override for PUT/DELETE forms ---
+app.use(methodOverride('_method'));
+
+app.use(cookieParser()); // For parsing cookies
+console.log('Middleware: Cookie Parser initialized.');
 // --- EJS Setup ---
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layouts/layout'); // Point to your main layout.ejs
 
-// --- Method Override for PUT/DELETE forms ---
-app.use(methodOverride('_method'));
+
 // --- Global Middlewares ---
 
 // Body Parser and Cookie Parser
 app.use(express.json()); // For parsing application/json requests
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
-app.use(cookieParser()); // For parsing cookies
+console.log('Middleware: Body Parsers initialized.');
+
+
 
 // Session Configuration (BEFORE CORS if `credentials: true` is used)
 app.use(session({
@@ -77,14 +87,16 @@ app.use(session({
     }
 }));
 
-// CORS Configuration
-app.use(cors({
-    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*', // Support multiple origins
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Include OPTIONS for pre-flight requests
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Added X-Requested-With
-    credentials: true // Allow cookies to be sent (essential for sessions)
-}));
+// --- Connect Flash Middleware (MUST come AFTER session) ---
+app.use(flash());
 
+// --- Express Messages Middleware (MUST come AFTER flash) ---
+// Makes flash messages available in EJS templates via `messages()` function
+app.use((req, res, next) => {
+    res.locals.messages = expressMessages(req, res);
+    next();
+});
+// 
 // Middleware to make `user` and `cartItemCount` available to all EJS templates
 app.use(async (req, res, next) => {
     // Ensure req.user is always an object, even if not authenticated
@@ -117,6 +129,17 @@ app.use(async (req, res, next) => {
     next();
 });
 
+//CORS Configuration
+app.use(cors({
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*', // Support multiple origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Include OPTIONS for pre-flight requests
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Added X-Requested-With
+    credentials: true // Allow cookies to be sent (essential for sessions)
+}));
+
+
+
+
 // --- API Routes ---
 app.use('/api/users', authRoutes);
 app.use('/api/products', productRoutes);
@@ -133,6 +156,8 @@ app.use('/api/complaints', complaintRoutes);
 app.get('/', (req, res) => {
     res.render('home', { title: 'Home' });
 });
+
+
 
 // --- Error Handling Middleware (must be after all routes) ---
 app.use(notFound);

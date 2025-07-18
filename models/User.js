@@ -35,14 +35,8 @@ const userSchema = new mongoose.Schema({
         sparse: true, // Allows multiple documents to have null for this field
     },
     phoneNumber: { // Assuming added in Phase 6
-        type: String,
-        unique: true,
-        sparse: true,
-        trim: true,
-        // Basic regex for international phone numbers, adjust as needed
-        match: /^\+\d{10,15}$/
-    },
-
+        type: String
+    }
 });
 
 userSchema.pre('save', async function (next) {
