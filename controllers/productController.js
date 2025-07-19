@@ -2,35 +2,51 @@
 
 const Product = require('../models/Product');
 const asyncHandler = require('express-async-handler');
+const Vendor = require('../models/vendor')
 
 
 // @desc    Create a new product
 // @route   POST /products (for views) or /api/products (for API)
 // @access  Private (Vendor/Admin)
 const createProduct = asyncHandler(async (req, res) => {
-    const { name, description, price, category, countInStock, image } = req.body;
-
-    // Assuming req.user is populated by 'protect' middleware
-    // and req.user.roles is a string (e.g., 'Vendor', 'Admin')
-    // and req.user.vendor is populated if the user is a vendor.
+    const { name, description, price, category, countInStock, image, vendor: selectedVendorId } = req.body; // Get vendor from body
 
     // Basic authorization check
-    if (req.user.roles !== 'Vendor' && req.user.roles !== 'Admin') {
+    // Ensure req.user and req.user.roles exist and is an array
+    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : [req.user.roles];
+    const isAdmin = userRoles.includes('Admin');
+    const isVendor = userRoles.includes('Vendor');
+
+    if (!isVendor && !isAdmin) {
         res.status(403);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Not authorized to create products.');
-        } else {
-            req.flash('error', 'You are not authorized to create products.');
-            return res.redirect('/products'); // Redirect to product list
-        }
+        req.flash('error', 'Not authorized to create products.');
+        return res.redirect('/products');
     }
 
-    // If user is a vendor, ensure they are associated with a vendor
-    if (req.user.roles === 'Vendor' && !req.user.vendor) {
-        res.status(400);
+    let productVendorId = null;
 
-        req.flash('error', 'You must have an associated vendor account to create products.');
-        return res.redirect('/'); // Or a vendor setup page
+    if (isAdmin) {
+        // Admin can explicitly select a vendor
+        if (selectedVendorId) {
+            const vendor = await Vendor.findById(selectedVendorId);
+            if (!vendor) {
+                res.status(400);
+                req.flash('error', 'Selected vendor not found.');
+                return res.redirect('/api/products/products');
+            }
+            productVendorId = selectedVendorId;
+        } else {
+            // Admin can create a product without assigning to a vendor initially
+            productVendorId = null;
+        }
+    } else if (isVendor) {
+        // Vendor can only create products for their own assigned vendor
+        if (!req.user.vendor) {
+            res.status(400);
+            req.flash('error', 'You must have an associated vendor account to create products.');
+            return res.redirect('/');
+        }
+        productVendorId = req.user.vendor._id;
     }
 
     const product = await Product.create({
@@ -41,19 +57,21 @@ const createProduct = asyncHandler(async (req, res) => {
         countInStock,
         image,
         user: req.user._id, // User who added the product
-        vendor: req.user.roles === 'Vendor' ? req.user.vendor._id : null, // Assign vendor if user is a vendor
+        vendor: productVendorId, // Assign vendor based on logic above
     });
 
 
     if (product) {
-        res.redirect('/api/products/products'); // Redirect to product list
-
+        {
+            req.flash('success', `Product "${product.name}" created successfully!`);
+            res.redirect('/api/products/products');
+        }
     } else {
         res.status(400);
-        req.flash('error', 'Failed to create product. Please check your input.');
-        res.redirect('/api/products/products/create'); // Redirect back to create form
+        {
+            throw new Error('Invalid product data');
+        }
     }
-
 });
 
 // @desc    Update a product

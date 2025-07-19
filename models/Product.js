@@ -8,7 +8,7 @@ const productSchema = mongoose.Schema({
     },
     vendor: { // NEW: The vendor this product belongs to
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'vendor',
+        ref: 'Vendor',
         required: true,
     },
     name: {
@@ -27,14 +27,6 @@ const productSchema = mongoose.Schema({
         type: String,
         enum: ['Electronics', 'Beauty', 'Food and Drinks', 'Fruits'],
         required: true,
-    },
-    weight: {
-        type: Number,
-        required: true
-    },
-    colour: {
-        type: String,
-        required: true
     },
     price: {
         type: Number,
