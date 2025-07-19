@@ -7,7 +7,7 @@
 
         <div class="bg-white p-8 card max-w-2xl mx-auto">
             <form
-                action="<%= typeof vendor !== 'undefined' && vendor ? '/api/vendors/' + vendor._id + '?_method=PUT' : '/api/vendors' %>"
+                action="<%= typeof vendor !== 'undefined' && vendor ? '/api/vendors/vendors/' + vendor._id + '?_method=PUT' : '/api/vendors/vendors/create' %>"
                 method="POST">
 
                 <div class="mb-4">

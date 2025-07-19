@@ -4,7 +4,7 @@
 
 <div class="bg-white p-8 card max-w-2xl mx-auto">
     <form
-        action="<%= typeof service !== 'undefined' ? '/api/services/services/' + service._id + '?_method=PUT' : '/services' %>"
+        action="<%= typeof service !== 'undefined' ? '/api/services/services/' + service._id + '?_method=PUT' : '/api/services/services' %>"
         method="POST">
         <div class="mb-4">
             <label for="name" class="block text-gray-700 font-medium mb-2">Service Name</label>

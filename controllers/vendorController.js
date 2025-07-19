@@ -146,11 +146,8 @@ const updateVendor = asyncHandler(async (req, res) => {
     }
 
     const updatedVendor = await vendor.save();
-
-
-
-    res.json(updatedVendor);
-});
+    res.redirect('/api/admin/dashboor/super');
+})
 
 // @desc    Delete a vendor
 // @route   DELETE /api/vendors/:id
@@ -184,7 +181,8 @@ const deleteVendor = asyncHandler(async (req, res) => {
 
 
 
-    res.json({ message: 'Vendor removed' });
+    res.redirect('/api/admin/dashboor/super');
+
 });
 
 

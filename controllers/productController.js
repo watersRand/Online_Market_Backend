@@ -28,12 +28,9 @@ const createProduct = asyncHandler(async (req, res) => {
     // If user is a vendor, ensure they are associated with a vendor
     if (req.user.roles === 'Vendor' && !req.user.vendor) {
         res.status(400);
-        if (req.originalUrl.startsWith('/api/')) {
-            throw new Error('Vendor account not associated. Cannot create product.');
-        } else {
-            req.flash('error', 'You must have an associated vendor account to create products.');
-            return res.redirect('/dashboard'); // Or a vendor setup page
-        }
+
+        req.flash('error', 'You must have an associated vendor account to create products.');
+        return res.redirect('/'); // Or a vendor setup page
     }
 
     const product = await Product.create({
