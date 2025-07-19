@@ -1,61 +1,103 @@
-<h1 class="text-3xl font-bold text-gray-800 mb-6">
-    <%= typeof product !=='undefined' ? 'Edit Product' : 'Create New Product' %>
-</h1>
+<!DOCTYPE html>
+<html lang="en">
 
-<div class="bg-white p-8 card max-w-2xl mx-auto">
-    <form
-        action="<%= typeof product !== 'undefined' ? '/api/products/products/' + product._id + '?_method=PUT' : '/api/products/products' %>"
-        method="POST">
-        <div class="mb-4">
-            <label for="name" class="block text-gray-700 font-medium mb-2">Product Name</label>
-            <input type="text" id="name" name="name" class="form-input"
-                value="<%= typeof product !== 'undefined' ? product.name : '' %>" required>
-        </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= typeof product !=='undefined' && product ? 'Edit Product: ' + product.name : 'Create New Product' %>
+    </title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #374151;
+        }
 
-        <div class="mb-4">
-            <label for="price" class="block text-gray-700 font-medium mb-2">Price</label>
-            <input type="number" id="price" name="price" class="form-input" step="0.01"
-                value="<%= typeof product !== 'undefined' ? product.price : '' %>" required>
-        </div>
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
 
-        <div class="mb-4">
-            <label for="description" class="block text-gray-700 font-medium mb-2">Description</label>
-            <textarea id="description" name="description" rows="5" class="form-input"
-                required><%= typeof product !== 'undefined' ? product.description : '' %></textarea>
-        </div>
+        .form-input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500;
+        }
 
-        <div class="mb-4">
-            <label for="category" class="block text-gray-700 font-medium mb-2">Category</label>
-            <input type="text" id="category" name="category" class="form-input"
-                value="<%= typeof product !== 'undefined' ? product.category : '' %>" required>
-        </div>
+        .btn-primary {
+            background-color: #4f46e5;
+            color: #ffffff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
 
-        <div class="mb-4">
-            <label for="countInStock" class="block text-gray-700 font-medium mb-2">Count in Stock</label>
-            <input type="number" id="countInStock" name="countInStock" class="form-input"
-                value="<%= typeof product !== 'undefined' ? product.countInStock : '' %>" required>
-        </div>
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+    </style>
+</head>
 
-        <% if (typeof user !=='undefined' && user.roles.includes('Admin')) { %>
-            <div class="mb-4">
-                <label for="vendorId" class="block text-gray-700 font-medium mb-2">Vendor (Super Admin only)</label>
-                <select id="vendorId" name="vendorId" class="form-input">
-                    <option value="">Select a Vendor</option>
-                    <% if (typeof vendors !=='undefined' && vendors.length> 0) { %>
-                        <% vendors.forEach(vendor=> { %>
-                            <option value="<%= vendor._id %>" <%=(typeof product !=='undefined' && product.vendor &&
-                                product.vendor.toString()===vendor._id.toString()) || (typeof selectedVendorId
-                                !=='undefined' && selectedVendorId===vendor._id.toString()) ? 'selected' : '' %>>
-                                <%= vendor.name %>
-                            </option>
-                            <% }); %>
-                                <% } %>
-                </select>
+<body class="min-h-screen flex flex-col items-center py-8">
+    <div class="container mx-auto px-4 w-full max-w-2xl">
+        <h1 class="text-4xl font-bold text-gray-800 mb-8 text-center">
+            <%= typeof product !=='undefined' && product ? 'Edit Product' : 'Create New Product' %>
+        </h1>
+
+        <%- messages() %> <!-- Display flash messages -->
+
+            <div class="bg-white p-8 card max-w-2xl mx-auto">
+                <form
+                    action="<%= typeof product !== 'undefined' && product ? '/api/products/products/' + product._id + '?_method=PUT' : '/api/products/products/create' %>"
+                    method="POST">
+
+                    <div class="mb-4">
+                        <label for="name" class="block text-gray-700 font-medium mb-2">Product Name</label>
+                        <input type="text" id="name" name="name" class="form-input"
+                            value="<%= typeof product !== 'undefined' && product ? product.name : '' %>" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="description" class="block text-gray-700 font-medium mb-2">Description</label>
+                        <textarea id="description" name="description" class="form-input h-24"
+                            required><%= typeof product !== 'undefined' && product ? product.description : '' %></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="price" class="block text-gray-700 font-medium mb-2">Price</label>
+                        <input type="number" id="price" name="price" class="form-input" step="0.01"
+                            value="<%= typeof product !== 'undefined' && product ? product.price : '' %>" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="category" class="block text-gray-700 font-medium mb-2">Category</label>
+                        <input type="text" id="category" name="category" class="form-input"
+                            value="<%= typeof product !== 'undefined' && product ? product.category : '' %>" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="countInStock" class="block text-gray-700 font-medium mb-2">Count In Stock</label>
+                        <input type="number" id="countInStock" name="countInStock" class="form-input"
+                            value="<%= typeof product !== 'undefined' && product ? product.countInStock : '' %>"
+                            required>
+                    </div>
+
+                    <div class="mb-6">
+                        <label for="image" class="block text-gray-700 font-medium mb-2">Image URL</label>
+                        <input type="text" id="image" name="image" class="form-input"
+                            value="<%= typeof product !== 'undefined' && product ? product.image : '' %>"
+                            placeholder="e.g., https://example.com/product.jpg">
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
+                        <a href="/api/products/products" class="btn-primary bg-gray-500 hover:bg-gray-600">Cancel</a>
+                        <button type="submit" class="btn-primary">
+                            <%= typeof product !=='undefined' && product ? 'Update Product' : 'Create Product' %>
+                        </button>
+                    </div>
+                </form>
             </div>
-            <% } %>
-
-                <button type="submit" class="btn btn-primary w-full py-3 text-lg">
-                    <%= typeof product !=='undefined' ? 'Update Product' : 'Create Product' %>
-                </button>
-    </form>
-</div>
+    </div>

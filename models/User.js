@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
     },
     roles: {
         type: String,
-        enum: ['Vendor', 'Delivery', 'Customer', 'Admin'],
+        enum: ['vendor', 'Delivery', 'Customer', 'Admin'],
         default: 'Customer'
     },
     isDeliveryPerson: { // NEW FIELD FOR DELIVERY PERSONNEL
