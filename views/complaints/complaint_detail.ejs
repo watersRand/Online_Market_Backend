@@ -25,13 +25,17 @@
                                 </li>
                                 <% } %>
                                     <% if (complaint.order) { %>
-                                        <li>Related Order: <a href="/api/orders/orders/<%= complaint.order._id %>"
+                                        <li>Related Order: <a href="/api/orders/<%= complaint.order._id %>"
                                                 class="text-indigo-600 hover:underline">#<%= complaint.order._id %></a>
-                                            (Total: $<%= complaint.order.totalPrice.toFixed(2) %>, Status: <%=
-                                                    complaint.order.status %>)</li>
+                                            <% if (complaint.order.totalPrice !==undefined && complaint.order.status
+                                                !==undefined) { %>
+                                                (Total: Ksh <%= complaint.order.totalPrice.toFixed(2) %>, Status: <%=
+                                                        complaint.order.status %>)
+                                                        <% } else { %>
+                                                            (Order details unavailable)
+                                                            <% } %>
+                                        </li>
                                         <% } %>
-                                            <li>Assigned To: <%= complaint.assignedTo ? complaint.assignedTo.name
-                                                    : 'Not Assigned' %>
                                             </li>
                 </ul>
                 <p class="text-gray-700 text-lg mt-6 leading-relaxed">

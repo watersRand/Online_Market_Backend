@@ -119,9 +119,9 @@ const getComplaintById = asyncHandler(async (req, res) => {
     }
 
     // Authorization: User who filed, Vendor Admin related to vendor, or Super Admin
-    const isOwner = complaint.user._id.toString() === req.user._id.toString();
-    const isVendorAdminForComplaint = req.user.vendor && complaint.vendor && complaint.vendor._id.toString() === req.user.vendor._id.toString();
-    const isAdmin = req.user.isAdmin;
+    const isOwner = complaint.user && req.user && complaint.user._id.toString() === req.user._id.toString();
+    const isVendorAdminForComplaint = req.user && req.user.vendor && complaint.vendor && complaint.vendor._id.toString() === req.user.vendor._id.toString();
+    const isAdmin = req.user && req.user.roles === 'Admin';
 
     if (!isOwner && !isVendorAdminForComplaint && !isAdmin) {
         res.status(403);
@@ -160,7 +160,7 @@ const updateComplaint = asyncHandler(async (req, res) => {
 
     // Authorization: Super Admin or Vendor Admin of the related vendor
     const isVendorAdminForComplaint = req.user.vendor && complaint.vendor && complaint.vendor._id.toString() === req.user.vendor._id.toString();
-    const isAdmin = req.user.isAdmin;
+    const isAdmin = req.user && req.user.roles.includes('Admin')
 
     if (!isAdmin && !isVendorAdminForComplaint) {
         res.status(403);
@@ -189,7 +189,7 @@ const updateComplaint = asyncHandler(async (req, res) => {
 
 
 
-    res.render('complaints/complaint_detail', { title: `Complaint #${complaint._id}`, complaint, user: req.user, assignedToUsers });
+    res.render('complaints/complaint_detail', { title: `Complaint #${complaint._id}`, complaint, user: req.user, assignedTo });
 });
 
 module.exports = {

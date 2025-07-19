@@ -89,16 +89,31 @@ const authorize = (requiredRoles = []) => {
 };
 // Middleware to populate req.user.vendor if user is a vendor admin
 const populateVendor = async (req, res, next) => {
-    // This check now relies on req.user having the 'vendor' role and the vendor field itself
-    // req.user.roles should now be populated correctly as an array of objects
-    if (req.user && req.user.roles.some(role => role.name === 'Vendor') && req.user.vendor) {
-        // Since populate('vendor') is already done in 'protect', this might not be strictly necessary
-        // unless you need to refresh the vendor data or if 'protect' doesn't always populate it.
-        // For simplicity, if protect populates it, you might not need this line:
-        // const fullUser = await User.findById(req.user._id).populate('vendor');
-        // if (fullUser) {
-        //     req.user.vendor = fullUser.vendor;
-        // }
+    // console.log('Inside populateVendor. req.user:', req.user); // Debugging
+    // console.log('req.user.roles type:', typeof req.user.roles); // Debugging
+    // console.log('req.user.roles value:', req.user.roles); // Debugging
+
+    // Ensure req.user exists and has an _id
+    if (req.user && req.user._id) {
+        // Fetch the full user object including populated vendor.
+        // This ensures req.user.vendor is a full object, not just an ID.
+        const fullUser = await User.findById(req.user._id).populate('vendor');
+
+        if (fullUser) {
+            // Overwrite req.user with the fully populated user object
+            req.user = fullUser;
+
+            // Now, check if the user has the 'Vendor' role (assuming roles is a string or array of strings)
+            // AND if a vendor is associated and populated.
+            // If req.user.roles is a string, check directly. If it's an array, use .includes().
+            const userHasVendorRole = Array.isArray(req.user.roles)
+                ? req.user.roles.includes('vendor')
+                : req.user.roles === 'vendor';
+
+            if (userHasVendorRole && req.user.vendor) {
+                // console.log('populateVendor: User is a Vendor with populated vendor:', req.user.vendor.name); // Debugging
+            }
+        }
     }
     next();
 };
